@@ -187,6 +187,10 @@ impl<'a> Lexer<'a> {
         let kind = match text {
             "model" => TokenKind::Model,
             "controller" => TokenKind::Controller,
+            "middleware" => TokenKind::Middleware,
+            "migration" => TokenKind::Migration,
+            "policy" => TokenKind::Policy,
+            "for" => TokenKind::For,
             "let" => TokenKind::Let,
             "return" => TokenKind::Return,
             "null" => TokenKind::Null,

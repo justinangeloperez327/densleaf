@@ -105,3 +105,21 @@ fn reports_unterminated_strings() {
             .contains("unterminated string")
     );
 }
+
+#[test]
+fn lexes_application_declaration_keywords() {
+    assert_eq!(
+        kinds("middleware Auth migration CreateUsers policy UserPolicy for User"),
+        vec![
+            TokenKind::Middleware,
+            TokenKind::Identifier("Auth".into()),
+            TokenKind::Migration,
+            TokenKind::Identifier("CreateUsers".into()),
+            TokenKind::Policy,
+            TokenKind::Identifier("UserPolicy".into()),
+            TokenKind::For,
+            TokenKind::Identifier("User".into()),
+            TokenKind::Eof,
+        ]
+    );
+}

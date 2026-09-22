@@ -36,7 +36,7 @@ Tokens are syntax-level units only. They do not decide application semantics or 
 
 ### Parser
 
-The parser is a recursive-descent parser with explicit precedence levels. It understands models, controllers, methods, parameters, blocks, `let`, `return`, primitive literals, `null`, arrays, objects, grouped expressions, unary and binary operators, member access, calls, and indexing.
+The parser is a recursive-descent parser with explicit precedence levels. It understands models, controllers, middleware, migrations, policies, methods, parameters, blocks, `let`, `return`, primitive literals, `null`, arrays, objects, grouped expressions, unary and binary operators, member access, calls, and indexing.
 
 Postfix expressions are composable, so constructs such as `User.find(id).items[0].name` form one expression tree rather than framework-specific parser cases.
 
@@ -48,10 +48,10 @@ The AST represents Densleaf concepts directly. Operators, calls, member access, 
 
 Semantic analysis now uses two phases:
 
-1. collect top-level models and controllers;
-2. analyze models and controller bodies against the collected symbols.
+1. collect all top-level declarations;
+2. analyze declaration-specific contracts and method bodies against the collected symbols.
 
-This allows forward references while still reporting duplicate top-level declarations. It also validates model names as user-defined type references, resolves parameters and local `let` bindings, reports unknown names, and rejects duplicate object keys.
+This allows forward references while still reporting duplicate top-level declarations. It also validates model names as user-defined type references, resolves parameters and local `let` bindings, reports unknown names, rejects duplicate object keys, requires `handle` on middleware, requires `up` on migrations, and verifies that policies target declared models.
 
 Full static operator type inference is intentionally not complete yet. The backend currently preserves deterministic runtime checks for operator misuse until the type system can reject those cases at compile time.
 

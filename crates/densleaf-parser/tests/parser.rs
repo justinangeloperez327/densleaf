@@ -200,3 +200,40 @@ fn reports_malformed_model_fields() {
     assert!(!output.diagnostics.is_empty());
     assert!(output.diagnostics[0].message.contains("field type"));
 }
+
+#[test]
+fn parses_middleware_migration_and_policy_declarations() {
+    let output = parse_source(
+        r#"
+        model User { id: id }
+
+        middleware AuthMiddleware {
+            handle(request) { return request }
+        }
+
+        migration CreateUsers {
+            up() {}
+            down() {}
+        }
+
+        policy UserPolicy for User {
+            view(actor: User, target: User) { return true }
+        }
+        "#,
+    );
+    assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+    assert!(matches!(
+        output.program.declarations[1],
+        Declaration::Middleware(_)
+    ));
+    assert!(matches!(
+        output.program.declarations[2],
+        Declaration::Migration(_)
+    ));
+
+    let Declaration::Policy(policy) = &output.program.declarations[3] else {
+        panic!("expected policy")
+    };
+    assert_eq!(policy.target.name, "User");
+    assert_eq!(policy.methods[0].name, "view");
+}

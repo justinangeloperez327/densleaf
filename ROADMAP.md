@@ -34,6 +34,12 @@ Implemented foundation:
 - index expressions
 - forward top-level symbol resolution
 - declared model type references
+- first-class `middleware` declarations
+- first-class `migration` declarations
+- first-class `policy ... for Model` declarations
+- middleware `handle` contract
+- migration `up` contract with optional `down`
+- policy-to-model semantic validation
 
 Next:
 
@@ -62,7 +68,9 @@ Basic controller parameters already exist from the compiler-foundation stage. Th
 
 ## 0.6 — Database and Queries
 
-## 0.7 — Relationships and Migrations
+## 0.7 — Relationships and Migration Runtime
+
+The `migration` declaration grammar is introduced earlier. This milestone implements schema operations, execution, ordering, rollback behavior, and database integration.
 
 ## 0.8 — Validation and Views
 

@@ -1,6 +1,8 @@
 use std::{collections::HashSet, fmt::Write};
 
-use densleaf_ast::{BinaryOperator, Declaration, Expression, Program, Statement, UnaryOperator};
+use densleaf_ast::{
+    BinaryOperator, Declaration, Expression, MethodDefinition, Program, Statement, UnaryOperator,
+};
 
 pub fn generate_rust(program: &Program) -> String {
     let globals = program
@@ -9,6 +11,9 @@ pub fn generate_rust(program: &Program) -> String {
         .map(|declaration| match declaration {
             Declaration::Model(model) => model.name.clone(),
             Declaration::Controller(controller) => controller.name.clone(),
+            Declaration::Middleware(middleware) => middleware.name.clone(),
+            Declaration::Migration(migration) => migration.name.clone(),
+            Declaration::Policy(policy) => policy.name.clone(),
         })
         .collect::<HashSet<_>>();
 
@@ -34,99 +39,156 @@ pub fn generate_rust(program: &Program) -> String {
                 output.push_str("}\n\n");
             }
             Declaration::Controller(controller) => {
-                writeln!(output, "pub struct {};", controller.name).unwrap();
-                writeln!(output, "\nimpl {} {{", controller.name).unwrap();
-
-                for method in &controller.methods {
-                    let mut generic_names = Vec::new();
-                    let mut parameters = Vec::new();
-                    let mut bindings = HashSet::new();
-
-                    for (index, parameter) in method.parameters.iter().enumerate() {
-                        bindings.insert(parameter.name.clone());
-
-                        if let Some(type_reference) = &parameter.type_reference {
-                            parameters.push(format!(
-                                "{}: {}",
-                                parameter.name,
-                                rust_type(&type_reference.name)
-                            ));
-                        } else {
-                            let generic = format!("T{index}");
-                            generic_names.push(generic.clone());
-                            parameters.push(format!("{}: {}", parameter.name, generic));
-                        }
-                    }
-
-                    let generic_clause = if generic_names.is_empty() {
-                        String::new()
-                    } else {
-                        format!(
-                            "<{}>",
-                            generic_names
-                                .iter()
-                                .map(|name| format!("{name}: Clone + Into<DensleafValue>"))
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        )
-                    };
-
-                    writeln!(
-                        output,
-                        "    pub fn {}{}({}) -> DensleafValue {{",
-                        method.name,
-                        generic_clause,
-                        parameters.join(", ")
-                    )
-                    .unwrap();
-
-                    if method.body.is_empty() {
-                        output.push_str("        DensleafValue::Unit\n");
-                    } else {
-                        for statement in &method.body {
-                            match statement {
-                                Statement::Let(let_statement) => {
-                                    writeln!(
-                                        output,
-                                        "        let {}: DensleafValue = {};",
-                                        let_statement.name,
-                                        expression_to_rust(
-                                            &let_statement.initializer,
-                                            &globals,
-                                            &bindings,
-                                        )
-                                    )
-                                    .unwrap();
-                                    bindings.insert(let_statement.name.clone());
-                                }
-                                Statement::Return(return_statement) => {
-                                    writeln!(
-                                        output,
-                                        "        return {};",
-                                        expression_to_rust(
-                                            &return_statement.expression,
-                                            &globals,
-                                            &bindings,
-                                        )
-                                    )
-                                    .unwrap();
-                                }
-                            }
-                        }
-
-                        output.push_str("        #[allow(unreachable_code)]\n");
-                        output.push_str("        DensleafValue::Unit\n");
-                    }
-
-                    output.push_str("    }\n");
-                }
-
-                output.push_str("}\n\n");
+                write_method_container(
+                    &mut output,
+                    &controller.name,
+                    "controller",
+                    None,
+                    &controller.methods,
+                    &globals,
+                );
+            }
+            Declaration::Middleware(middleware) => {
+                write_method_container(
+                    &mut output,
+                    &middleware.name,
+                    "middleware",
+                    None,
+                    &middleware.methods,
+                    &globals,
+                );
+            }
+            Declaration::Migration(migration) => {
+                write_method_container(
+                    &mut output,
+                    &migration.name,
+                    "migration",
+                    None,
+                    &migration.methods,
+                    &globals,
+                );
+            }
+            Declaration::Policy(policy) => {
+                write_method_container(
+                    &mut output,
+                    &policy.name,
+                    "policy",
+                    Some(&policy.target.name),
+                    &policy.methods,
+                    &globals,
+                );
             }
         }
     }
 
     output
+}
+
+fn write_method_container(
+    output: &mut String,
+    name: &str,
+    kind: &str,
+    policy_target: Option<&str>,
+    methods: &[MethodDefinition],
+    globals: &HashSet<String>,
+) {
+    writeln!(output, "pub struct {name};").unwrap();
+    writeln!(output, "\nimpl {name} {{").unwrap();
+    writeln!(
+        output,
+        "    pub const DENSLEAF_KIND: &'static str = {kind:?};"
+    )
+    .unwrap();
+
+    if let Some(target) = policy_target {
+        writeln!(
+            output,
+            "    pub const TARGET_MODEL: &'static str = {target:?};"
+        )
+        .unwrap();
+    }
+
+    for method in methods {
+        write_method(output, method, globals);
+    }
+
+    output.push_str("}\n\n");
+}
+
+fn write_method(output: &mut String, method: &MethodDefinition, globals: &HashSet<String>) {
+    let mut generic_names = Vec::new();
+    let mut parameters = Vec::new();
+    let mut bindings = HashSet::new();
+
+    for (index, parameter) in method.parameters.iter().enumerate() {
+        bindings.insert(parameter.name.clone());
+
+        if let Some(type_reference) = &parameter.type_reference {
+            parameters.push(format!(
+                "{}: {}",
+                parameter.name,
+                rust_type(&type_reference.name)
+            ));
+        } else {
+            let generic = format!("T{index}");
+            generic_names.push(generic.clone());
+            parameters.push(format!("{}: {}", parameter.name, generic));
+        }
+    }
+
+    let generic_clause = if generic_names.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<{}>",
+            generic_names
+                .iter()
+                .map(|name| format!("{name}: Clone + Into<DensleafValue>"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+
+    writeln!(
+        output,
+        "    pub fn {}{}({}) -> DensleafValue {{",
+        method.name,
+        generic_clause,
+        parameters.join(", ")
+    )
+    .unwrap();
+
+    if method.body.is_empty() {
+        output.push_str("        DensleafValue::Unit\n");
+    } else {
+        for statement in &method.body {
+            match statement {
+                Statement::Let(let_statement) => {
+                    writeln!(
+                        output,
+                        "        let {}: DensleafValue = {};",
+                        let_statement.name,
+                        expression_to_rust(&let_statement.initializer, globals, &bindings)
+                    )
+                    .unwrap();
+                    bindings.insert(let_statement.name.clone());
+                }
+                Statement::Return(return_statement) => {
+                    writeln!(
+                        output,
+                        "        return {};",
+                        expression_to_rust(&return_statement.expression, globals, &bindings)
+                    )
+                    .unwrap();
+                }
+            }
+        }
+
+        output.push_str("        #[allow(unreachable_code)]\n");
+        output.push_str("        DensleafValue::Unit\n");
+    }
+
+    output.push_str("    }\n");
 }
 
 fn rust_type(name: &str) -> &'static str {

@@ -1,7 +1,7 @@
 use densleaf_ast::{
-    BinaryOperator, ControllerDefinition, ControllerMethod, Declaration, Expression, LetStatement,
-    ModelDefinition, ModelField, ObjectEntry, Parameter, Program, ReturnStatement, Statement,
-    TypeReference, UnaryOperator,
+    BinaryOperator, ControllerDefinition, Declaration, Expression, LetStatement, MethodDefinition,
+    MiddlewareDefinition, MigrationDefinition, ModelDefinition, ModelField, ObjectEntry, Parameter,
+    PolicyDefinition, Program, ReturnStatement, Statement, TypeReference, UnaryOperator,
 };
 use densleaf_diagnostic::Diagnostic;
 use densleaf_token::{Span, Token, TokenKind};
@@ -46,13 +46,27 @@ impl Parser {
                         declarations.push(Declaration::Controller(controller));
                     }
                 }
+                TokenKind::Middleware => {
+                    if let Some(middleware) = self.parse_middleware() {
+                        declarations.push(Declaration::Middleware(middleware));
+                    }
+                }
+                TokenKind::Migration => {
+                    if let Some(migration) = self.parse_migration() {
+                        declarations.push(Declaration::Migration(migration));
+                    }
+                }
+                TokenKind::Policy => {
+                    if let Some(policy) = self.parse_policy() {
+                        declarations.push(Declaration::Policy(policy));
+                    }
+                }
                 _ => {
                     let span = self.peek().span.clone();
                     self.diagnostics.push(
-                        Diagnostic::error("expected `model` or `controller` declaration", span)
-                            .with_help(
-                                "start a top-level declaration with `model` or `controller`",
-                            ),
+                        Diagnostic::error("expected a top-level declaration", span).with_help(
+                            "start with `model`, `controller`, `middleware`, `migration`, or `policy`",
+                        ),
                     );
                     self.advance();
                 }
@@ -148,8 +162,103 @@ impl Parser {
         })
     }
 
-    fn parse_controller_method(&mut self) -> Option<ControllerMethod> {
-        let (name, name_span) = self.expect_identifier("expected a controller method name")?;
+    fn parse_middleware(&mut self) -> Option<MiddlewareDefinition> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected a middleware name")?;
+        if !self.expect_simple(
+            TokenKind::LeftBrace,
+            "expected `{` after the middleware name",
+        ) {
+            return None;
+        }
+
+        let mut methods = Vec::new();
+        while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
+            if let Some(method) = self.parse_controller_method() {
+                methods.push(method);
+            } else {
+                self.synchronize_controller_member();
+            }
+        }
+
+        let end = self.expect_simple_span(
+            TokenKind::RightBrace,
+            "expected `}` to close the middleware",
+        )?;
+        Some(MiddlewareDefinition {
+            name,
+            name_span,
+            methods,
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_migration(&mut self) -> Option<MigrationDefinition> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected a migration name")?;
+        if !self.expect_simple(
+            TokenKind::LeftBrace,
+            "expected `{` after the migration name",
+        ) {
+            return None;
+        }
+
+        let mut methods = Vec::new();
+        while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
+            if let Some(method) = self.parse_controller_method() {
+                methods.push(method);
+            } else {
+                self.synchronize_controller_member();
+            }
+        }
+
+        let end =
+            self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the migration")?;
+        Some(MigrationDefinition {
+            name,
+            name_span,
+            methods,
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_policy(&mut self) -> Option<PolicyDefinition> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected a policy name")?;
+        if !self.expect_simple(TokenKind::For, "expected `for` after the policy name") {
+            return None;
+        }
+        let (target_name, target_span) =
+            self.expect_identifier("expected a model name after `for`")?;
+        if !self.expect_simple(TokenKind::LeftBrace, "expected `{` after the policy target") {
+            return None;
+        }
+
+        let mut methods = Vec::new();
+        while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
+            if let Some(method) = self.parse_controller_method() {
+                methods.push(method);
+            } else {
+                self.synchronize_controller_member();
+            }
+        }
+
+        let end =
+            self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the policy")?;
+        Some(PolicyDefinition {
+            name,
+            name_span,
+            target: TypeReference {
+                name: target_name,
+                span: target_span,
+            },
+            methods,
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_controller_method(&mut self) -> Option<MethodDefinition> {
+        let (name, name_span) = self.expect_identifier("expected a method name")?;
         if !self.expect_simple(TokenKind::LeftParen, "expected `(` after the method name") {
             return None;
         }
@@ -162,7 +271,7 @@ impl Parser {
         let (body, block_span) = self.parse_block()?;
         let method_span = name_span.cover(&block_span);
 
-        Some(ControllerMethod {
+        Some(MethodDefinition {
             name,
             name_span,
             parameters,

@@ -14,7 +14,10 @@ program =
 
 declaration =
       model_declaration
-    | controller_declaration ;
+    | controller_declaration
+    | middleware_declaration
+    | migration_declaration
+    | policy_declaration ;
 
 model_declaration =
     "model" identifier "{"
@@ -30,6 +33,24 @@ controller_declaration =
     "}" ;
 
 controller_method =
+    identifier "(" parameter_list? ")" block ;
+
+middleware_declaration =
+    "middleware" identifier "{"
+        method_declaration*
+    "}" ;
+
+migration_declaration =
+    "migration" identifier "{"
+        method_declaration*
+    "}" ;
+
+policy_declaration =
+    "policy" identifier "for" identifier "{"
+        method_declaration*
+    "}" ;
+
+method_declaration =
     identifier "(" parameter_list? ")" block ;
 
 parameter_list =
@@ -184,7 +205,36 @@ let data = { allowed: allowed }
 return data
 ```
 
-A local name must already exist before it can be read. Parameters are visible inside their method body. Top-level models and controllers are collected before body analysis, so forward references are recognized. Re-declaring a parameter or local name in the same method is rejected.
+A local name must already exist before it can be read. Parameters are visible inside their method body. All top-level declarations are collected before body analysis, so forward references are recognized. Re-declaring a parameter or local name in the same method is rejected.
+
+## First-class application declarations
+
+Densleaf treats three additional framework concepts as grammar because each carries compiler-visible semantics:
+
+```densleaf
+middleware AuthMiddleware {
+    handle(request) {
+        return request
+    }
+}
+
+migration CreateUsers {
+    up() {}
+    down() {}
+}
+
+policy UserPolicy for User {
+    view(actor: User, target: User) {
+        return true
+    }
+}
+```
+
+- A `middleware` declaration must expose `handle` as its pipeline entry point.
+- A `migration` declaration must expose `up`; `down` is optional because not every migration is safely reversible.
+- A `policy` explicitly targets a declared model with `for`. Policy method names represent authorization abilities and are intentionally not hard-coded to CRUD names.
+- These declarations have their own AST nodes and compiler semantics. They are not aliases for a generic type plus `implements`.
+- Actual HTTP middleware execution, schema operations, and authorization enforcement remain later runtime/framework work.
 
 ## Deliberately deferred
 
@@ -198,6 +248,6 @@ The following remain outside the implemented grammar until their semantics are d
 - enums
 - optional types
 - complete static expression type checking
-- framework routing, HTTP, database queries, validation, views, jobs, events, and similar application features
+- framework routing, HTTP execution, database query/runtime behavior, schema operations inside migrations, authorization enforcement, validation, views, jobs, events, and similar application features
 
 In particular, Densleaf does not add keywords such as `service`, `request`, `job`, or `event` merely to reduce boilerplate. A new keyword must provide distinct semantics that justify becoming part of the language.
