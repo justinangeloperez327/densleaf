@@ -12,12 +12,16 @@ fn kinds(source: &str) -> Vec<TokenKind> {
 #[test]
 fn lexes_keywords_identifiers_and_literals() {
     assert_eq!(
-        kinds("model User controller Api return true false \"hello\" 42"),
+        kinds("model User controller Api let value = null return true false \"hello\" 42"),
         vec![
             TokenKind::Model,
             TokenKind::Identifier("User".into()),
             TokenKind::Controller,
             TokenKind::Identifier("Api".into()),
+            TokenKind::Let,
+            TokenKind::Identifier("value".into()),
+            TokenKind::Equal,
+            TokenKind::Null,
             TokenKind::Return,
             TokenKind::True,
             TokenKind::False,

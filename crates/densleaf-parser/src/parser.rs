@@ -1,6 +1,6 @@
 use densleaf_ast::{
-    ControllerDefinition, ControllerMethod, Declaration, Expression, ModelDefinition, ModelField,
-    Parameter, Program, ReturnStatement, Statement, TypeReference,
+    ControllerDefinition, ControllerMethod, Declaration, Expression, LetStatement, ModelDefinition,
+    ModelField, ObjectEntry, Parameter, Program, ReturnStatement, Statement, TypeReference,
 };
 use densleaf_diagnostic::Diagnostic;
 use densleaf_token::{Span, Token, TokenKind};
@@ -213,6 +213,11 @@ impl Parser {
 
         while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
             match self.peek_kind() {
+                TokenKind::Let => {
+                    if let Some(statement) = self.parse_let_statement() {
+                        statements.push(Statement::Let(statement));
+                    }
+                }
                 TokenKind::Return => {
                     if let Some(statement) = self.parse_return_statement() {
                         statements.push(Statement::Return(statement));
@@ -221,9 +226,8 @@ impl Parser {
                 _ => {
                     let span = self.peek().span.clone();
                     self.diagnostics.push(
-                        Diagnostic::error("expected a `return` statement", span).with_help(
-                            "controller methods currently support only basic `return` statements",
-                        ),
+                        Diagnostic::error("expected a statement", span)
+                            .with_help("start a statement with `let` or `return`"),
                     );
                     self.advance();
                 }
@@ -237,6 +241,23 @@ impl Parser {
         Some((statements, start.cover(&end)))
     }
 
+    fn parse_let_statement(&mut self) -> Option<LetStatement> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected a variable name after `let`")?;
+        if !self.expect_simple(TokenKind::Equal, "expected `=` after the variable name") {
+            return None;
+        }
+        let initializer = self.parse_expression()?;
+        let span = start.cover(initializer.span());
+
+        Some(LetStatement {
+            name,
+            name_span,
+            initializer,
+            span,
+        })
+    }
+
     fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
         let start = self.advance().span.clone();
         let expression = self.parse_expression()?;
@@ -245,6 +266,10 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Option<Expression> {
+        self.parse_primary_expression()
+    }
+
+    fn parse_primary_expression(&mut self) -> Option<Expression> {
         let token = self.advance().clone();
         match token.kind {
             TokenKind::StringLiteral(value) => Some(Expression::StringLiteral {
@@ -263,18 +288,88 @@ impl Parser {
                 value: false,
                 span: token.span,
             }),
+            TokenKind::Null => Some(Expression::NullLiteral { span: token.span }),
             TokenKind::Identifier(name) => Some(Expression::Identifier {
                 name,
                 span: token.span,
             }),
+            TokenKind::LeftParen => self.parse_grouped_expression(token.span),
+            TokenKind::LeftBracket => self.parse_array_literal(token.span),
+            TokenKind::LeftBrace => self.parse_object_literal(token.span),
             _ => {
                 self.diagnostics.push(
-                    Diagnostic::error("expected a value after `return`", token.span)
-                        .with_help("return a string, integer, boolean, or identifier"),
+                    Diagnostic::error("expected an expression", token.span).with_help(
+                        "use a literal, identifier, array `[]`, object `{}`, or grouped expression",
+                    ),
                 );
                 None
             }
         }
+    }
+
+    fn parse_grouped_expression(&mut self, start: Span) -> Option<Expression> {
+        let expression = self.parse_expression()?;
+        let end = self.expect_simple_span(
+            TokenKind::RightParen,
+            "expected `)` after the grouped expression",
+        )?;
+        Some(Expression::Grouped {
+            expression: Box::new(expression),
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_array_literal(&mut self, start: Span) -> Option<Expression> {
+        let mut elements = Vec::new();
+
+        while !self.check_simple(&TokenKind::RightBracket) && !self.is_eof() {
+            elements.push(self.parse_expression()?);
+
+            if !self.match_simple(&TokenKind::Comma) {
+                break;
+            }
+        }
+
+        let end = self.expect_simple_span(
+            TokenKind::RightBracket,
+            "expected `]` to close the array literal",
+        )?;
+        Some(Expression::ArrayLiteral {
+            elements,
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_object_literal(&mut self, start: Span) -> Option<Expression> {
+        let mut entries = Vec::new();
+
+        while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
+            let (key, key_span) = self.expect_identifier("expected an object key")?;
+            if !self.expect_simple(TokenKind::Colon, "expected `:` after the object key") {
+                return None;
+            }
+            let value = self.parse_expression()?;
+            let span = key_span.cover(value.span());
+            entries.push(ObjectEntry {
+                key,
+                key_span,
+                value,
+                span,
+            });
+
+            if !self.match_simple(&TokenKind::Comma) {
+                break;
+            }
+        }
+
+        let end = self.expect_simple_span(
+            TokenKind::RightBrace,
+            "expected `}` to close the object literal",
+        )?;
+        Some(Expression::ObjectLiteral {
+            entries,
+            span: start.cover(&end),
+        })
     }
 
     fn synchronize_model_member(&mut self) {

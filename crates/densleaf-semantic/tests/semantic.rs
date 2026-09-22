@@ -46,3 +46,41 @@ fn catches_unknown_types() {
     assert_eq!(errors.len(), 1);
     assert!(errors[0].message.contains("unknown type `number`"));
 }
+
+#[test]
+fn resolves_parameters_and_local_bindings() {
+    let errors = diagnostics(
+        r#"controller Api {
+            show(id) {
+                let selected = id
+                return { selected: selected }
+            }
+        }"#,
+    );
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[test]
+fn catches_unknown_names_duplicate_locals_and_object_keys() {
+    let errors = diagnostics(
+        r#"controller Api {
+            show(id) {
+                let selected = id
+                let selected = missing
+                return { value: selected, value: null }
+            }
+        }"#,
+    );
+
+    assert!(errors.iter().any(|d| d.message.contains("unknown name `missing`")));
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("duplicate local binding"))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("duplicate object key"))
+    );
+}
