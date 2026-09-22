@@ -1,0 +1,26 @@
+model User {
+    id: id
+    name: string
+}
+
+middleware AuthMiddleware {
+    handle(request) {
+        return request
+    }
+}
+
+migration CreateUsers {
+    up() {}
+
+    down() {}
+}
+
+policy UserPolicy for User {
+    view(actor: User, target: User) {
+        return true
+    }
+
+    update(actor: User, target: User) {
+        return actor == target
+    }
+}

@@ -45,6 +45,10 @@ impl Span {
 pub enum TokenKind {
     Model,
     Controller,
+    Middleware,
+    Migration,
+    Policy,
+    For,
     Let,
     Return,
     Null,

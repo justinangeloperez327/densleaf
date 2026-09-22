@@ -39,7 +39,7 @@ Shorter code is useful only when it also improves comprehension. The language sh
 
 `model` and `controller` remain first-class because they carry framework semantics that differ from ordinary values.
 
-Densleaf should be more conservative with additional framework keywords. Concepts such as services, requests, events, jobs, policies, and notifications should not automatically become grammar. They can begin as ordinary types or library abstractions and become first-class only if distinct compiler/framework semantics justify it.
+Densleaf should be conservative with additional framework keywords. `middleware`, `migration`, and `policy` qualify because they carry framework lifecycle or binding semantics that the compiler must understand. Concepts such as services, requests, events, jobs, and notifications should not automatically become grammar. They can begin as ordinary types or library abstractions and become first-class only if distinct compiler/framework semantics justify it.
 
 ## Values
 

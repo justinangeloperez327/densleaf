@@ -108,3 +108,51 @@ fn catches_unknown_names_duplicate_locals_and_object_keys() {
             .any(|d| d.message.contains("duplicate object key"))
     );
 }
+
+#[test]
+fn validates_middleware_migration_and_policy_contracts() {
+    let valid = diagnostics(
+        r#"
+        model User { id: id }
+        middleware Auth { handle(request) { return request } }
+        migration CreateUsers { up() {} }
+        policy UserPolicy for User { view(actor: User) { return true } }
+        "#,
+    );
+    assert!(valid.is_empty(), "{valid:?}");
+
+    let invalid = diagnostics(
+        r#"
+        middleware EmptyMiddleware {}
+        migration EmptyMigration {}
+        policy GhostPolicy for Ghost {}
+        "#,
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("must define `handle`"))
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("must define `up`"))
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("targets unknown model `Ghost`"))
+    );
+}
+
+#[test]
+fn application_declarations_share_the_top_level_namespace() {
+    let errors = diagnostics(
+        "model User { id: id } middleware User { handle(request) { return request } }",
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("duplicate top-level declaration"))
+    );
+}

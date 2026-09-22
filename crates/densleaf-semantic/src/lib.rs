@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use densleaf_ast::{
-    ControllerDefinition, Declaration, Expression, ModelDefinition, Program, Statement,
-    TypeReference,
+    ControllerDefinition, Declaration, Expression, MethodDefinition, MiddlewareDefinition,
+    MigrationDefinition, ModelDefinition, PolicyDefinition, Program, Statement, TypeReference,
 };
 use densleaf_diagnostic::Diagnostic;
 use densleaf_token::Span;
@@ -13,6 +13,9 @@ const BUILTIN_TYPES: &[&str] = &["id", "int", "bool", "string"];
 enum GlobalKind {
     Model,
     Controller,
+    Middleware,
+    Migration,
+    Policy,
 }
 
 impl GlobalKind {
@@ -20,6 +23,9 @@ impl GlobalKind {
         match self {
             Self::Model => "model",
             Self::Controller => "controller",
+            Self::Middleware => "middleware",
+            Self::Migration => "migration",
+            Self::Policy => "policy",
         }
     }
 }
@@ -51,6 +57,9 @@ impl Analyzer {
             match declaration {
                 Declaration::Model(model) => self.analyze_model(model),
                 Declaration::Controller(controller) => self.analyze_controller(controller),
+                Declaration::Middleware(middleware) => self.analyze_middleware(middleware),
+                Declaration::Migration(migration) => self.analyze_migration(migration),
+                Declaration::Policy(policy) => self.analyze_policy(policy),
             }
         }
     }
@@ -66,6 +75,21 @@ impl Analyzer {
                     &controller.name,
                     &controller.name_span,
                     GlobalKind::Controller,
+                ),
+                Declaration::Middleware(middleware) => (
+                    &middleware.name,
+                    &middleware.name_span,
+                    GlobalKind::Middleware,
+                ),
+                Declaration::Migration(migration) => (
+                    &migration.name,
+                    &migration.name_span,
+                    GlobalKind::Migration,
+                ),
+                Declaration::Policy(policy) => (
+                    &policy.name,
+                    &policy.name_span,
+                    GlobalKind::Policy,
                 ),
             };
 
@@ -122,19 +146,68 @@ impl Analyzer {
     }
 
     fn analyze_controller(&mut self, controller: &ControllerDefinition) {
-        let mut methods: HashMap<&str, &Span> = HashMap::new();
+        self.analyze_methods("controller", &controller.name, &controller.methods);
+    }
 
-        for method in &controller.methods {
-            if let Some(previous) = methods.insert(&method.name, &method.name_span) {
+    fn analyze_middleware(&mut self, middleware: &MiddlewareDefinition) {
+        self.analyze_methods("middleware", &middleware.name, &middleware.methods);
+
+        if !middleware.methods.iter().any(|method| method.name == "handle") {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    format!("middleware `{}` must define `handle`", middleware.name),
+                    middleware.name_span.clone(),
+                )
+                .with_help("add `handle(request) { ... }` as the middleware entry point"),
+            );
+        }
+    }
+
+    fn analyze_migration(&mut self, migration: &MigrationDefinition) {
+        self.analyze_methods("migration", &migration.name, &migration.methods);
+
+        if !migration.methods.iter().any(|method| method.name == "up") {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    format!("migration `{}` must define `up`", migration.name),
+                    migration.name_span.clone(),
+                )
+                .with_help("add `up() { ... }` to describe the forward migration"),
+            );
+        }
+    }
+
+    fn analyze_policy(&mut self, policy: &PolicyDefinition) {
+        if !self.model_names.contains(&policy.target.name) {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    format!(
+                        "policy `{}` targets unknown model `{}`",
+                        policy.name, policy.target.name
+                    ),
+                    policy.target.span.clone(),
+                )
+                .with_help("the name after `for` must refer to a declared model"),
+            );
+        }
+
+        self.analyze_methods("policy", &policy.name, &policy.methods);
+    }
+
+    fn analyze_methods(&mut self, kind: &str, owner_name: &str, methods: &[MethodDefinition]) {
+        let mut method_names: HashMap<&str, &Span> = HashMap::new();
+
+        for method in methods {
+            if let Some(previous) = method_names.insert(&method.name, &method.name_span) {
                 self.diagnostics.push(
                     Diagnostic::error(
-                        format!("duplicate controller method `{}`", method.name),
+                        format!("duplicate {kind} method `{}`", method.name),
                         method.name_span.clone(),
                     )
                     .with_note(format!(
                         "`{}` is already declared on `{}` at {}:{}:{}",
                         method.name,
-                        controller.name,
+                        owner_name,
                         previous.file,
                         previous.start.line,
                         previous.start.column

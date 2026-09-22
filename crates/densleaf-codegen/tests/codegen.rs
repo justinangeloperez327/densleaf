@@ -78,3 +78,37 @@ show(id: id) {
     assert!(generated.contains("densleaf_not_equal"));
     assert!(generated.contains("densleaf_or"));
 }
+
+#[test]
+fn generates_application_declaration_metadata_and_methods() {
+    let source = r#"
+model User { id: id }
+
+middleware AuthMiddleware {
+    handle(request) { return request }
+}
+
+migration CreateUsers {
+    up() {}
+}
+
+policy UserPolicy for User {
+    view(actor: User, target: User) { return true }
+}
+"#;
+    let lexed = lex(source, "app.dl");
+    let parsed = parse(lexed.tokens);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+
+    let generated = generate_rust(&parsed.program);
+    assert!(generated.contains("pub struct AuthMiddleware;"));
+    assert!(generated.contains("DENSLEAF_KIND: &'static str = \"middleware\""));
+    assert!(generated.contains("pub fn handle"));
+    assert!(generated.contains("pub struct CreateUsers;"));
+    assert!(generated.contains("DENSLEAF_KIND: &'static str = \"migration\""));
+    assert!(generated.contains("pub fn up"));
+    assert!(generated.contains("pub struct UserPolicy;"));
+    assert!(generated.contains("DENSLEAF_KIND: &'static str = \"policy\""));
+    assert!(generated.contains("TARGET_MODEL: &'static str = \"User\""));
+    assert!(generated.contains("pub fn view"));
+}

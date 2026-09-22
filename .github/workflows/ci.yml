@@ -32,3 +32,10 @@ jobs:
         run: cargo run -p densleaf-cli -- build examples/core-expressions/expressions.dl
       - name: Compile generated core expression Rust
         run: rustc --edition 2024 --crate-type lib .densleaf/generated/expressions.rs -o /tmp/libdensleaf_expressions.rlib
+
+      - name: Check application declaration grammar
+        run: cargo run -p densleaf-cli -- check examples/application-declarations/app.dl
+      - name: Generate application declaration Rust
+        run: cargo run -p densleaf-cli -- build examples/application-declarations/app.dl
+      - name: Compile generated application declaration Rust
+        run: rustc --edition 2024 --crate-type lib .densleaf/generated/app.rs -o /tmp/libdensleaf_app_declarations.rlib

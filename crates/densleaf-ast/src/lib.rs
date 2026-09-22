@@ -9,6 +9,9 @@ pub struct Program {
 pub enum Declaration {
     Model(ModelDefinition),
     Controller(ControllerDefinition),
+    Middleware(MiddlewareDefinition),
+    Migration(MigrationDefinition),
+    Policy(PolicyDefinition),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,12 +34,37 @@ pub struct ModelField {
 pub struct ControllerDefinition {
     pub name: String,
     pub name_span: Span,
-    pub methods: Vec<ControllerMethod>,
+    pub methods: Vec<MethodDefinition>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ControllerMethod {
+pub struct MiddlewareDefinition {
+    pub name: String,
+    pub name_span: Span,
+    pub methods: Vec<MethodDefinition>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MigrationDefinition {
+    pub name: String,
+    pub name_span: Span,
+    pub methods: Vec<MethodDefinition>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PolicyDefinition {
+    pub name: String,
+    pub name_span: Span,
+    pub target: TypeReference,
+    pub methods: Vec<MethodDefinition>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MethodDefinition {
     pub name: String,
     pub name_span: Span,
     pub parameters: Vec<Parameter>,
