@@ -1,0 +1,15 @@
+[package]
+name = "densleaf-parser"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+densleaf-ast = { path = "../densleaf-ast" }
+densleaf-diagnostic = { path = "../densleaf-diagnostic" }
+densleaf-token = { path = "../densleaf-token" }
+
+[dev-dependencies]
+densleaf-lexer = { path = "../densleaf-lexer" }
+
+[lints]
+workspace = true

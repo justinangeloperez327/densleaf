@@ -1,0 +1,77 @@
+use densleaf_lexer::*;
+use densleaf_token::TokenKind;
+
+fn kinds(source: &str) -> Vec<TokenKind> {
+    lex(source, "test.dl")
+        .tokens
+        .into_iter()
+        .map(|token| token.kind)
+        .collect()
+}
+
+#[test]
+fn lexes_keywords_identifiers_and_literals() {
+    assert_eq!(
+        kinds("model User controller Api return true false \"hello\" 42"),
+        vec![
+            TokenKind::Model,
+            TokenKind::Identifier("User".into()),
+            TokenKind::Controller,
+            TokenKind::Identifier("Api".into()),
+            TokenKind::Return,
+            TokenKind::True,
+            TokenKind::False,
+            TokenKind::StringLiteral("hello".into()),
+            TokenKind::IntegerLiteral(42),
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn lexes_punctuation() {
+    assert_eq!(
+        kinds("{}()[]:,.="),
+        vec![
+            TokenKind::LeftBrace,
+            TokenKind::RightBrace,
+            TokenKind::LeftParen,
+            TokenKind::RightParen,
+            TokenKind::LeftBracket,
+            TokenKind::RightBracket,
+            TokenKind::Colon,
+            TokenKind::Comma,
+            TokenKind::Dot,
+            TokenKind::Equal,
+            TokenKind::Eof,
+        ]
+    );
+}
+
+#[test]
+fn tracks_source_spans_and_comments() {
+    let output = lex("// comment\nmodel User {}", "app.dl");
+    assert!(output.diagnostics.is_empty());
+    let model = &output.tokens[0];
+    assert_eq!(model.span.start.line, 2);
+    assert_eq!(model.span.start.column, 1);
+    assert_eq!(model.span.file, "app.dl");
+}
+
+#[test]
+fn reports_invalid_characters() {
+    let output = lex("model @", "app.dl");
+    assert_eq!(output.diagnostics.len(), 1);
+    assert!(output.diagnostics[0].message.contains("invalid character"));
+}
+
+#[test]
+fn reports_unterminated_strings() {
+    let output = lex("return \"hello", "app.dl");
+    assert_eq!(output.diagnostics.len(), 1);
+    assert!(
+        output.diagnostics[0]
+            .message
+            .contains("unterminated string")
+    );
+}

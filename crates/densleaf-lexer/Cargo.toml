@@ -1,0 +1,11 @@
+[package]
+name = "densleaf-lexer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+densleaf-diagnostic = { path = "../densleaf-diagnostic" }
+densleaf-token = { path = "../densleaf-token" }
+
+[lints]
+workspace = true

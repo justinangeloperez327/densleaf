@@ -1,0 +1,10 @@
+model User {
+    id: id
+    name: string
+}
+
+controller UserController {
+    index() {
+        return "Users"
+    }
+}
