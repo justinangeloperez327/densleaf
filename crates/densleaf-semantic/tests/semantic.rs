@@ -201,11 +201,10 @@ fn validates_event_listener_notification_and_mail_contracts() {
         "#,
     );
 
-    assert!(
-        invalid
-            .iter()
-            .any(|d| d.message.contains("listens to unknown event `MissingEvent`"))
-    );
+    assert!(invalid.iter().any(|d| {
+        d.message
+            .contains("listens to unknown event `MissingEvent`")
+    }));
     assert!(
         invalid
             .iter()
@@ -246,11 +245,10 @@ fn listener_rejects_wrong_typed_event_parameter() {
         "#,
     );
 
-    assert!(
-        errors
-            .iter()
-            .any(|d| d.message.contains("handles `UserCreated`, not `UserDeleted`"))
-    );
+    assert!(errors.iter().any(|d| {
+        d.message
+            .contains("handles `UserCreated`, not `UserDeleted`")
+    }));
 }
 
 #[test]

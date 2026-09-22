@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use densleaf_ast::{
     ControllerDefinition, Declaration, EventDefinition, Expression, FieldDefinition,
-    ListenerDefinition, MailDefinition, MethodDefinition, MiddlewareDefinition, MigrationDefinition,
-    ModelDefinition, NotificationDefinition, PolicyDefinition, Program, Statement, TypeReference,
+    ListenerDefinition, MailDefinition, MethodDefinition, MiddlewareDefinition,
+    MigrationDefinition, ModelDefinition, NotificationDefinition, PolicyDefinition, Program,
+    Statement, TypeReference,
 };
 use densleaf_diagnostic::Diagnostic;
 use densleaf_token::Span;
@@ -105,11 +106,9 @@ impl Analyzer {
                     self.event_names.insert(event.name.clone());
                     (&event.name, &event.name_span, GlobalKind::Event)
                 }
-                Declaration::Listener(listener) => (
-                    &listener.name,
-                    &listener.name_span,
-                    GlobalKind::Listener,
-                ),
+                Declaration::Listener(listener) => {
+                    (&listener.name, &listener.name_span, GlobalKind::Listener)
+                }
                 Declaration::Notification(notification) => (
                     &notification.name,
                     &notification.name_span,
@@ -248,7 +247,10 @@ impl Analyzer {
 
         self.analyze_methods("listener", &listener.name, &listener.methods);
 
-        let handle = listener.methods.iter().find(|method| method.name == "handle");
+        let handle = listener
+            .methods
+            .iter()
+            .find(|method| method.name == "handle");
         let Some(handle) = handle else {
             self.diagnostics.push(
                 Diagnostic::error(

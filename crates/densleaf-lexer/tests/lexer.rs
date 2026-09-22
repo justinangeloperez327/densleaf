@@ -127,7 +127,9 @@ fn lexes_application_declaration_keywords() {
 #[test]
 fn lexes_messaging_declaration_keywords() {
     assert_eq!(
-        kinds("event UserCreated listener SendMail listens UserCreated notification Welcome mail WelcomeMail"),
+        kinds(
+            "event UserCreated listener SendMail listens UserCreated notification Welcome mail WelcomeMail"
+        ),
         vec![
             TokenKind::Event,
             TokenKind::Identifier("UserCreated".into()),

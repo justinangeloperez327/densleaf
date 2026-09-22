@@ -1,8 +1,9 @@
 use densleaf_ast::{
-    BinaryOperator, ControllerDefinition, Declaration, EventDefinition, Expression, FieldDefinition,
-    LetStatement, ListenerDefinition, MailDefinition, MethodDefinition, MiddlewareDefinition,
-    MigrationDefinition, ModelDefinition, NotificationDefinition, ObjectEntry, Parameter,
-    PolicyDefinition, Program, ReturnStatement, Statement, TypeReference, UnaryOperator,
+    BinaryOperator, ControllerDefinition, Declaration, EventDefinition, Expression,
+    FieldDefinition, LetStatement, ListenerDefinition, MailDefinition, MethodDefinition,
+    MiddlewareDefinition, MigrationDefinition, ModelDefinition, NotificationDefinition,
+    ObjectEntry, Parameter, PolicyDefinition, Program, ReturnStatement, Statement, TypeReference,
+    UnaryOperator,
 };
 use densleaf_diagnostic::Diagnostic;
 use densleaf_token::{Span, Token, TokenKind};
@@ -135,8 +136,9 @@ impl Parser {
             Some(value) => value,
             None => {
                 if let Some(diagnostic) = self.diagnostics.last_mut() {
-                    diagnostic.help =
-                        Some(format!("try `{name}: string` on {owner_kind} `{owner_name}`"));
+                    diagnostic.help = Some(format!(
+                        "try `{name}: string` on {owner_kind} `{owner_name}`"
+                    ));
                 }
                 return None;
             }
@@ -182,7 +184,10 @@ impl Parser {
     fn parse_listener(&mut self) -> Option<ListenerDefinition> {
         let start = self.advance().span.clone();
         let (name, name_span) = self.expect_identifier("expected a listener name")?;
-        if !self.expect_simple(TokenKind::Listens, "expected `listens` after the listener name") {
+        if !self.expect_simple(
+            TokenKind::Listens,
+            "expected `listens` after the listener name",
+        ) {
             return None;
         }
         let (event_name, event_span) =

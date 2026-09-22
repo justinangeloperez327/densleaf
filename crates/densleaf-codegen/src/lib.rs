@@ -152,11 +152,7 @@ fn write_method_container(
     .unwrap();
 
     if let Some((key, value)) = metadata {
-        writeln!(
-            output,
-            "    pub const {key}: &'static str = {value:?};"
-        )
-        .unwrap();
+        writeln!(output, "    pub const {key}: &'static str = {value:?};").unwrap();
     }
 
     for method in methods {
