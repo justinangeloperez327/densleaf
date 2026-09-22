@@ -161,7 +161,7 @@ impl Analyzer {
             if let Some(previous) = field_names.insert(&field.name, &field.name_span) {
                 self.diagnostics.push(
                     Diagnostic::error(
-                        format!("duplicate field `{}`", field.name),
+                        format!("duplicate field `{}` on {kind}", field.name),
                         field.name_span.clone(),
                     )
                     .with_note(format!(
@@ -279,22 +279,22 @@ impl Analyzer {
             return;
         };
 
-        if let Some(type_reference) = &event_parameter.type_reference {
-            if type_reference.name != listener.event.name {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        format!(
-                            "listener `{}` handles `{}`, not `{}`",
-                            listener.name, listener.event.name, type_reference.name
-                        ),
-                        type_reference.span.clone(),
-                    )
-                    .with_help(format!(
-                        "type the first handle parameter as `{}` or leave it inferred",
-                        listener.event.name
-                    )),
-                );
-            }
+        if let Some(type_reference) = &event_parameter.type_reference
+            && type_reference.name != listener.event.name
+        {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    format!(
+                        "listener `{}` handles `{}`, not `{}`",
+                        listener.name, listener.event.name, type_reference.name
+                    ),
+                    type_reference.span.clone(),
+                )
+                .with_help(format!(
+                    "type the first handle parameter as `{}` or leave it inferred",
+                    listener.event.name
+                )),
+            );
         }
     }
 
