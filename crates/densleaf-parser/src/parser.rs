@@ -1,6 +1,7 @@
 use densleaf_ast::{
-    BinaryOperator, ControllerDefinition, Declaration, Expression, LetStatement, MethodDefinition,
-    MiddlewareDefinition, MigrationDefinition, ModelDefinition, ModelField, ObjectEntry, Parameter,
+    BinaryOperator, ControllerDefinition, Declaration, EventDefinition, Expression, FieldDefinition,
+    LetStatement, ListenerDefinition, MailDefinition, MethodDefinition, MiddlewareDefinition,
+    MigrationDefinition, ModelDefinition, NotificationDefinition, ObjectEntry, Parameter,
     PolicyDefinition, Program, ReturnStatement, Statement, TypeReference, UnaryOperator,
 };
 use densleaf_diagnostic::Diagnostic;
@@ -61,11 +62,31 @@ impl Parser {
                         declarations.push(Declaration::Policy(policy));
                     }
                 }
+                TokenKind::Event => {
+                    if let Some(event) = self.parse_event() {
+                        declarations.push(Declaration::Event(event));
+                    }
+                }
+                TokenKind::Listener => {
+                    if let Some(listener) = self.parse_listener() {
+                        declarations.push(Declaration::Listener(listener));
+                    }
+                }
+                TokenKind::Notification => {
+                    if let Some(notification) = self.parse_notification() {
+                        declarations.push(Declaration::Notification(notification));
+                    }
+                }
+                TokenKind::Mail => {
+                    if let Some(mail) = self.parse_mail() {
+                        declarations.push(Declaration::Mail(mail));
+                    }
+                }
                 _ => {
                     let span = self.peek().span.clone();
                     self.diagnostics.push(
                         Diagnostic::error("expected a top-level declaration", span).with_help(
-                            "start with `model`, `controller`, `middleware`, `migration`, or `policy`",
+                            "start with `model`, `controller`, `middleware`, `migration`, `policy`, `event`, `listener`, `notification`, or `mail`",
                         ),
                     );
                     self.advance();
@@ -88,7 +109,7 @@ impl Parser {
 
         let mut fields = Vec::new();
         while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
-            if let Some(field) = self.parse_model_field(&name) {
+            if let Some(field) = self.parse_field("model", &name) {
                 fields.push(field);
             } else {
                 self.synchronize_model_member();
@@ -105,7 +126,7 @@ impl Parser {
         })
     }
 
-    fn parse_model_field(&mut self, model_name: &str) -> Option<ModelField> {
+    fn parse_field(&mut self, owner_kind: &str, owner_name: &str) -> Option<FieldDefinition> {
         let (name, name_span) = self.expect_identifier("expected a field name")?;
         if !self.expect_simple(TokenKind::Colon, "expected `:` after the field name") {
             return None;
@@ -114,13 +135,14 @@ impl Parser {
             Some(value) => value,
             None => {
                 if let Some(diagnostic) = self.diagnostics.last_mut() {
-                    diagnostic.help = Some(format!("try `{name}: string` on `{model_name}`"));
+                    diagnostic.help =
+                        Some(format!("try `{name}: string` on {owner_kind} `{owner_name}`"));
                 }
                 return None;
             }
         };
         let span = name_span.cover(&type_span);
-        Some(ModelField {
+        Some(FieldDefinition {
             name,
             name_span,
             type_reference: TypeReference {
@@ -128,6 +150,100 @@ impl Parser {
                 span: type_span,
             },
             span,
+        })
+    }
+
+    fn parse_event(&mut self) -> Option<EventDefinition> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected an event name")?;
+        if !self.expect_simple(TokenKind::LeftBrace, "expected `{` after the event name") {
+            return None;
+        }
+
+        let mut fields = Vec::new();
+        while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
+            if let Some(field) = self.parse_field("event", &name) {
+                fields.push(field);
+            } else {
+                self.synchronize_model_member();
+            }
+        }
+
+        let end =
+            self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the event")?;
+        Some(EventDefinition {
+            name,
+            name_span,
+            fields,
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_listener(&mut self) -> Option<ListenerDefinition> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected a listener name")?;
+        if !self.expect_simple(TokenKind::Listens, "expected `listens` after the listener name") {
+            return None;
+        }
+        let (event_name, event_span) =
+            self.expect_identifier("expected an event name after `listens`")?;
+        if !self.expect_simple(TokenKind::LeftBrace, "expected `{` after the event name") {
+            return None;
+        }
+
+        let methods = self.parse_method_list("listener")?;
+        let end =
+            self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the listener")?;
+        Some(ListenerDefinition {
+            name,
+            name_span,
+            event: TypeReference {
+                name: event_name,
+                span: event_span,
+            },
+            methods,
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_notification(&mut self) -> Option<NotificationDefinition> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected a notification name")?;
+        if !self.expect_simple(
+            TokenKind::LeftBrace,
+            "expected `{` after the notification name",
+        ) {
+            return None;
+        }
+
+        let methods = self.parse_method_list("notification")?;
+        let end = self.expect_simple_span(
+            TokenKind::RightBrace,
+            "expected `}` to close the notification",
+        )?;
+        Some(NotificationDefinition {
+            name,
+            name_span,
+            methods,
+            span: start.cover(&end),
+        })
+    }
+
+    fn parse_mail(&mut self) -> Option<MailDefinition> {
+        let start = self.advance().span.clone();
+        let (name, name_span) = self.expect_identifier("expected a mail name")?;
+        if !self.expect_simple(TokenKind::LeftBrace, "expected `{` after the mail name") {
+            return None;
+        }
+
+        let methods = self.parse_method_list("mail")?;
+        let end =
+            self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the mail")?;
+        Some(MailDefinition {
+            name,
+            name_span,
+            methods,
+            span: start.cover(&end),
         })
     }
 
@@ -255,6 +371,28 @@ impl Parser {
             methods,
             span: start.cover(&end),
         })
+    }
+
+    fn parse_method_list(&mut self, declaration_kind: &str) -> Option<Vec<MethodDefinition>> {
+        let mut methods = Vec::new();
+        while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
+            if let Some(method) = self.parse_controller_method() {
+                methods.push(method);
+            } else {
+                self.synchronize_controller_member();
+                if self.is_eof() {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            format!("unterminated {declaration_kind} declaration"),
+                            self.peek().span.clone(),
+                        )
+                        .with_help("close the declaration with `}`"),
+                    );
+                    return None;
+                }
+            }
+        }
+        Some(methods)
     }
 
     fn parse_controller_method(&mut self) -> Option<MethodDefinition> {

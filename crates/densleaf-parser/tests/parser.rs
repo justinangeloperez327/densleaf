@@ -237,3 +237,52 @@ fn parses_middleware_migration_and_policy_declarations() {
     assert_eq!(policy.target.name, "User");
     assert_eq!(policy.methods[0].name, "view");
 }
+
+#[test]
+fn parses_event_listener_notification_and_mail_declarations() {
+    let output = parse_source(
+        r#"
+        model User { id: id }
+
+        event UserCreated {
+            user: User
+        }
+
+        listener SendWelcomeMail listens UserCreated {
+            handle(event: UserCreated) { return event }
+        }
+
+        notification WelcomeNotification {
+            channels() { return ["mail"] }
+            message(user: User) { return "Welcome" }
+        }
+
+        mail WelcomeMail {
+            subject() { return "Welcome" }
+            body(user: User) { return "Hello" }
+        }
+        "#,
+    );
+    assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+    let Declaration::Event(event) = &output.program.declarations[1] else {
+        panic!("expected event")
+    };
+    assert_eq!(event.name, "UserCreated");
+    assert_eq!(event.fields[0].name, "user");
+
+    let Declaration::Listener(listener) = &output.program.declarations[2] else {
+        panic!("expected listener")
+    };
+    assert_eq!(listener.event.name, "UserCreated");
+    assert_eq!(listener.methods[0].name, "handle");
+
+    assert!(matches!(
+        output.program.declarations[3],
+        Declaration::Notification(_)
+    ));
+    assert!(matches!(
+        output.program.declarations[4],
+        Declaration::Mail(_)
+    ));
+}

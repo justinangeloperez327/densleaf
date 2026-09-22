@@ -155,3 +155,114 @@ fn application_declarations_share_the_top_level_namespace() {
             .any(|d| d.message.contains("duplicate top-level declaration"))
     );
 }
+
+#[test]
+fn validates_event_listener_notification_and_mail_contracts() {
+    let valid = diagnostics(
+        r#"
+        model User { id: id }
+
+        event UserCreated { user: User }
+
+        listener SendWelcomeMail listens UserCreated {
+            handle(event: UserCreated) { return event }
+        }
+
+        notification WelcomeNotification {
+            channels() { return ["mail"] }
+            message(user: User) { return "Welcome" }
+        }
+
+        mail WelcomeMail {
+            subject() { return "Welcome" }
+            body(user: User) { return "Hello" }
+        }
+        "#,
+    );
+    assert!(valid.is_empty(), "{valid:?}");
+
+    let invalid = diagnostics(
+        r#"
+        event ExistingEvent { value: string }
+
+        listener MissingEventListener listens MissingEvent {
+            handle(event) { return event }
+        }
+
+        listener MissingHandle listens ExistingEvent {}
+
+        listener WrongHandle listens ExistingEvent {
+            handle(event: ExistingEvent) { return event }
+        }
+
+        notification EmptyNotification {}
+
+        mail EmptyMail {}
+        "#,
+    );
+
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("listens to unknown event `MissingEvent`"))
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("must define `handle`"))
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("must define `channels`"))
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("must define `message`"))
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("must define `subject`"))
+    );
+    assert!(
+        invalid
+            .iter()
+            .any(|d| d.message.contains("must define `body`"))
+    );
+}
+
+#[test]
+fn listener_rejects_wrong_typed_event_parameter() {
+    let errors = diagnostics(
+        r#"
+        event UserCreated { id: id }
+        event UserDeleted { id: id }
+
+        listener AuditUserCreated listens UserCreated {
+            handle(event: UserDeleted) { return event }
+        }
+        "#,
+    );
+
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("handles `UserCreated`, not `UserDeleted`"))
+    );
+}
+
+#[test]
+fn events_are_valid_user_defined_types() {
+    let errors = diagnostics(
+        r#"
+        event UserCreated { id: id }
+
+        controller Api {
+            show(event: UserCreated) { return event }
+        }
+        "#,
+    );
+    assert!(errors.is_empty(), "{errors:?}");
+}

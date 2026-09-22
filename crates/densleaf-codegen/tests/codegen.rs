@@ -112,3 +112,46 @@ policy UserPolicy for User {
     assert!(generated.contains("TARGET_MODEL: &'static str = \"User\""));
     assert!(generated.contains("pub fn view"));
 }
+
+#[test]
+fn generates_messaging_declaration_metadata_and_event_data() {
+    let source = r#"
+model User { id: id }
+
+event UserCreated {
+    user: User
+}
+
+listener SendWelcomeMail listens UserCreated {
+    handle(event: UserCreated) { return event }
+}
+
+notification WelcomeNotification {
+    channels() { return ["mail"] }
+    message(user: User) { return "Welcome" }
+}
+
+mail WelcomeMail {
+    subject() { return "Welcome" }
+    body(user: User) { return "Hello" }
+}
+"#;
+    let lexed = lex(source, "messaging.dl");
+    let parsed = parse(lexed.tokens);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+
+    let generated = generate_rust(&parsed.program);
+    assert!(generated.contains("pub struct UserCreated"));
+    assert!(generated.contains("DENSLEAF_KIND: &'static str = \"event\""));
+    assert!(generated.contains("pub struct SendWelcomeMail;"));
+    assert!(generated.contains("DENSLEAF_KIND: &'static str = \"listener\""));
+    assert!(generated.contains("EVENT_NAME: &'static str = \"UserCreated\""));
+    assert!(generated.contains("pub struct WelcomeNotification;"));
+    assert!(generated.contains("DENSLEAF_KIND: &'static str = \"notification\""));
+    assert!(generated.contains("pub fn channels"));
+    assert!(generated.contains("pub fn message"));
+    assert!(generated.contains("pub struct WelcomeMail;"));
+    assert!(generated.contains("DENSLEAF_KIND: &'static str = \"mail\""));
+    assert!(generated.contains("pub fn subject"));
+    assert!(generated.contains("pub fn body"));
+}

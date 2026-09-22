@@ -39,3 +39,10 @@ jobs:
         run: cargo run -p densleaf-cli -- build examples/application-declarations/app.dl
       - name: Compile generated application declaration Rust
         run: rustc --edition 2024 --crate-type lib .densleaf/generated/app.rs -o /tmp/libdensleaf_app_declarations.rlib
+
+      - name: Check messaging declaration grammar
+        run: cargo run -p densleaf-cli -- check examples/messaging/messaging.dl
+      - name: Generate messaging declaration Rust
+        run: cargo run -p densleaf-cli -- build examples/messaging/messaging.dl
+      - name: Compile generated messaging declaration Rust
+        run: rustc --edition 2024 --crate-type lib .densleaf/generated/messaging.rs -o /tmp/libdensleaf_messaging.rlib

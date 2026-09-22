@@ -49,7 +49,7 @@ The compiler understands call syntax independently from framework APIs. For exam
 
 Densleaf optimizes for code that is easy to understand rather than code with the fewest possible lines.
 
-New keywords are added only when they provide distinct semantics. `middleware`, `migration`, and `policy` are first-class because the compiler/framework must understand their pipeline, lifecycle, and authorization-target roles. Framework patterns such as services, requests, jobs, or events are not automatically promoted into grammar merely to shorten code.
+New keywords are added only when they provide distinct semantics. `middleware`, `migration`, `policy`, `event`, `listener`, `notification`, and `mail` are first-class because the compiler/framework must understand their pipeline, lifecycle, binding, dispatch, or delivery roles. Framework patterns such as services, requests, and jobs are not automatically promoted into grammar merely to shorten code.
 
 ## Application declarations
 
@@ -72,7 +72,33 @@ policy UserPolicy for User {
 }
 ```
 
-These declarations are compiler concepts rather than `implements` conventions. The grammar exists now; execution of middleware pipelines, database schema operations, and authorization enforcement will be implemented in their respective framework/runtime milestones.
+These declarations are compiler concepts rather than `implements` conventions.
+
+Messaging declarations are also first-class:
+
+```densleaf
+event UserCreated {
+    user: User
+}
+
+listener SendWelcomeMail listens UserCreated {
+    handle(event: UserCreated) {
+        return event
+    }
+}
+
+notification WelcomeNotification {
+    channels() { return ["mail"] }
+    message(user: User) { return "Welcome" }
+}
+
+mail WelcomeMail {
+    subject() { return "Welcome" }
+    body(user: User) { return "Hello" }
+}
+```
+
+The grammar exists now; middleware pipelines, database schema execution, authorization enforcement, event dispatch, notification delivery, and mail transport will be implemented in their respective framework/runtime milestones.
 
 ## Compiler pipeline
 
