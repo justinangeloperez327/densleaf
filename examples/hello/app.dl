@@ -1,0 +1,11 @@
+model User {
+    id: id
+    name: string
+    email: string
+}
+
+controller UserController {
+    index() {
+        return "Users"
+    }
+}

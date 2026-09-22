@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "crates/densleaf-token",
+    "crates/densleaf-diagnostic",
+    "crates/densleaf-lexer",
+    "crates/densleaf-ast",
+    "crates/densleaf-parser",
+    "crates/densleaf-semantic",
+    "crates/densleaf-codegen",
+    "crates/densleaf-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

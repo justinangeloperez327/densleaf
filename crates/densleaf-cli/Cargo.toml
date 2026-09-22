@@ -1,0 +1,18 @@
+[package]
+name = "densleaf-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "densleaf"
+path = "src/main.rs"
+
+[dependencies]
+densleaf-codegen = { path = "../densleaf-codegen" }
+densleaf-diagnostic = { path = "../densleaf-diagnostic" }
+densleaf-lexer = { path = "../densleaf-lexer" }
+densleaf-parser = { path = "../densleaf-parser" }
+densleaf-semantic = { path = "../densleaf-semantic" }
+
+[lints]
+workspace = true

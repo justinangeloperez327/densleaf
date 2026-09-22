@@ -1,0 +1,10 @@
+[package]
+name = "densleaf-diagnostic"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+densleaf-token = { path = "../densleaf-token" }
+
+[lints]
+workspace = true

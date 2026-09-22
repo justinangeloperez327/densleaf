@@ -1,0 +1,14 @@
+[package]
+name = "densleaf-codegen"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+densleaf-ast = { path = "../densleaf-ast" }
+
+[dev-dependencies]
+densleaf-lexer = { path = "../densleaf-lexer" }
+densleaf-parser = { path = "../densleaf-parser" }
+
+[lints]
+workspace = true
