@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "foundation/**"]
+    branches: [main, "foundation/**", "feature/**"]
   pull_request:
 
 jobs:
@@ -24,5 +24,11 @@ jobs:
         run: cargo run -p densleaf-cli -- check examples/hello/app.dl
       - name: Generate reference application
         run: cargo run -p densleaf-cli -- build examples/hello/app.dl
-      - name: Compile generated Rust
+      - name: Compile generated reference Rust
         run: rustc --edition 2024 --crate-type lib .densleaf/generated/app.rs -o /tmp/libdensleaf_generated.rlib
+      - name: Check core expression application
+        run: cargo run -p densleaf-cli -- check examples/core-expressions/expressions.dl
+      - name: Generate core expression application
+        run: cargo run -p densleaf-cli -- build examples/core-expressions/expressions.dl
+      - name: Compile generated core expression Rust
+        run: rustc --edition 2024 --crate-type lib .densleaf/generated/expressions.rs -o /tmp/libdensleaf_expressions.rlib

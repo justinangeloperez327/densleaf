@@ -1,0 +1,21 @@
+model User {
+    id: id
+    name: string
+    active: bool
+}
+
+controller UserController {
+    show(id: id) {
+        let score = (10 + 5) * 2
+        let allowed = score >= 20 && !false
+        let user = {
+            name: "Justin",
+            active: allowed,
+        }
+        let first = [user][0]
+        let name = first.name
+        let found = User.find(id)
+
+        return found != null || name == "Justin"
+    }
+}

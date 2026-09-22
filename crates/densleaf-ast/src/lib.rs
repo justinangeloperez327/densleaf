@@ -80,6 +80,29 @@ pub struct ObjectEntry {
     pub span: Span,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOperator {
+    Not,
+    Negate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Remainder,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    And,
+    Or,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
     StringLiteral {
@@ -113,6 +136,33 @@ pub enum Expression {
         expression: Box<Expression>,
         span: Span,
     },
+    Unary {
+        operator: UnaryOperator,
+        operand: Box<Expression>,
+        span: Span,
+    },
+    Binary {
+        left: Box<Expression>,
+        operator: BinaryOperator,
+        right: Box<Expression>,
+        span: Span,
+    },
+    MemberAccess {
+        object: Box<Expression>,
+        member: String,
+        member_span: Span,
+        span: Span,
+    },
+    Call {
+        callee: Box<Expression>,
+        arguments: Vec<Expression>,
+        span: Span,
+    },
+    Index {
+        object: Box<Expression>,
+        index: Box<Expression>,
+        span: Span,
+    },
 }
 
 impl Expression {
@@ -125,7 +175,12 @@ impl Expression {
             | Self::Identifier { span, .. }
             | Self::ArrayLiteral { span, .. }
             | Self::ObjectLiteral { span, .. }
-            | Self::Grouped { span, .. } => span,
+            | Self::Grouped { span, .. }
+            | Self::Unary { span, .. }
+            | Self::Binary { span, .. }
+            | Self::MemberAccess { span, .. }
+            | Self::Call { span, .. }
+            | Self::Index { span, .. } => span,
         }
     }
 }
