@@ -50,7 +50,7 @@ pub fn generate_rust(program: &Program) -> String {
                             "<{}>",
                             generic_names
                                 .iter()
-                                .map(|name| format!("{name}: Into<DensleafValue>"))
+                                .map(|name| format!("{name}: Clone + Into<DensleafValue>"))
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         )
@@ -69,6 +69,15 @@ pub fn generate_rust(program: &Program) -> String {
                     } else {
                         for statement in &method.body {
                             match statement {
+                                Statement::Let(let_statement) => {
+                                    writeln!(
+                                        output,
+                                        "        let {}: DensleafValue = {};",
+                                        let_statement.name,
+                                        expression_to_rust(&let_statement.initializer)
+                                    )
+                                    .unwrap();
+                                }
                                 Statement::Return(return_statement) => {
                                     writeln!(
                                         output,
@@ -108,7 +117,31 @@ fn expression_to_rust(expression: &Expression) -> String {
         }
         Expression::IntegerLiteral { value, .. } => format!("DensleafValue::Integer({value})"),
         Expression::BooleanLiteral { value, .. } => format!("DensleafValue::Boolean({value})"),
-        Expression::Identifier { name, .. } => format!("{name}.into()"),
+        Expression::NullLiteral { .. } => "DensleafValue::Null".to_string(),
+        Expression::Identifier { name, .. } => format!("{name}.clone().into()"),
+        Expression::ArrayLiteral { elements, .. } => {
+            let elements = elements
+                .iter()
+                .map(expression_to_rust)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("DensleafValue::Array(vec![{elements}])")
+        }
+        Expression::ObjectLiteral { entries, .. } => {
+            let entries = entries
+                .iter()
+                .map(|entry| {
+                    format!(
+                        "({:?}.to_string(), {})",
+                        entry.key,
+                        expression_to_rust(&entry.value)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("DensleafValue::Object(vec![{entries}])")
+        }
+        Expression::Grouped { expression, .. } => expression_to_rust(expression),
     }
 }
 
@@ -117,6 +150,9 @@ pub enum DensleafValue {
     String(String),
     Integer(i64),
     Boolean(bool),
+    Null,
+    Array(Vec<DensleafValue>),
+    Object(Vec<(String, DensleafValue)>),
     Unit,
 }
 

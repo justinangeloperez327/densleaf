@@ -54,7 +54,16 @@ pub struct Parameter {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
+    Let(LetStatement),
     Return(ReturnStatement),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LetStatement {
+    pub name: String,
+    pub name_span: Span,
+    pub initializer: Expression,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,11 +73,46 @@ pub struct ReturnStatement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectEntry {
+    pub key: String,
+    pub key_span: Span,
+    pub value: Expression,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
-    StringLiteral { value: String, span: Span },
-    IntegerLiteral { value: i64, span: Span },
-    BooleanLiteral { value: bool, span: Span },
-    Identifier { name: String, span: Span },
+    StringLiteral {
+        value: String,
+        span: Span,
+    },
+    IntegerLiteral {
+        value: i64,
+        span: Span,
+    },
+    BooleanLiteral {
+        value: bool,
+        span: Span,
+    },
+    NullLiteral {
+        span: Span,
+    },
+    Identifier {
+        name: String,
+        span: Span,
+    },
+    ArrayLiteral {
+        elements: Vec<Expression>,
+        span: Span,
+    },
+    ObjectLiteral {
+        entries: Vec<ObjectEntry>,
+        span: Span,
+    },
+    Grouped {
+        expression: Box<Expression>,
+        span: Span,
+    },
 }
 
 impl Expression {
@@ -77,7 +121,11 @@ impl Expression {
             Self::StringLiteral { span, .. }
             | Self::IntegerLiteral { span, .. }
             | Self::BooleanLiteral { span, .. }
-            | Self::Identifier { span, .. } => span,
+            | Self::NullLiteral { span }
+            | Self::Identifier { span, .. }
+            | Self::ArrayLiteral { span, .. }
+            | Self::ObjectLiteral { span, .. }
+            | Self::Grouped { span, .. } => span,
         }
     }
 }

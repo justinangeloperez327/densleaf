@@ -147,7 +147,9 @@ impl<'a> Lexer<'a> {
         let kind = match text {
             "model" => TokenKind::Model,
             "controller" => TokenKind::Controller,
+            "let" => TokenKind::Let,
             "return" => TokenKind::Return,
+            "null" => TokenKind::Null,
             "true" => TokenKind::True,
             "false" => TokenKind::False,
             _ => TokenKind::Identifier(text.to_string()),

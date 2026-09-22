@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use densleaf_ast::{ControllerDefinition, Declaration, ModelDefinition, Program, TypeReference};
+use densleaf_ast::{
+    ControllerDefinition, Declaration, Expression, ModelDefinition, Program, Statement,
+    TypeReference,
+};
 use densleaf_diagnostic::Diagnostic;
 use densleaf_token::Span;
 
@@ -91,6 +94,7 @@ impl Analyzer {
 
     fn analyze_controller(&mut self, controller: &ControllerDefinition) {
         let mut methods: HashMap<&str, &Span> = HashMap::new();
+
         for method in &controller.methods {
             if let Some(previous) = methods.insert(&method.name, &method.name_span) {
                 self.diagnostics.push(
@@ -109,9 +113,11 @@ impl Analyzer {
                 );
             }
 
-            let mut parameters: HashMap<&str, &Span> = HashMap::new();
+            let mut bindings: HashMap<String, Span> = HashMap::new();
             for parameter in &method.parameters {
-                if let Some(previous) = parameters.insert(&parameter.name, &parameter.name_span) {
+                if let Some(previous) =
+                    bindings.insert(parameter.name.clone(), parameter.name_span.clone())
+                {
                     self.diagnostics.push(
                         Diagnostic::error(
                             format!("duplicate parameter `{}`", parameter.name),
@@ -127,10 +133,90 @@ impl Analyzer {
                         )),
                     );
                 }
+
                 if let Some(type_reference) = &parameter.type_reference {
                     self.check_type(type_reference);
                 }
             }
+
+            for statement in &method.body {
+                self.analyze_statement(statement, &mut bindings);
+            }
+        }
+    }
+
+    fn analyze_statement(&mut self, statement: &Statement, bindings: &mut HashMap<String, Span>) {
+        match statement {
+            Statement::Let(let_statement) => {
+                self.analyze_expression(&let_statement.initializer, bindings);
+
+                if let Some(previous) =
+                    bindings.insert(let_statement.name.clone(), let_statement.name_span.clone())
+                {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            format!("duplicate local binding `{}`", let_statement.name),
+                            let_statement.name_span.clone(),
+                        )
+                        .with_note(format!(
+                            "`{}` is already bound at {}:{}:{}",
+                            let_statement.name,
+                            previous.file,
+                            previous.start.line,
+                            previous.start.column
+                        )),
+                    );
+                }
+            }
+            Statement::Return(return_statement) => {
+                self.analyze_expression(&return_statement.expression, bindings);
+            }
+        }
+    }
+
+    fn analyze_expression(&mut self, expression: &Expression, bindings: &HashMap<String, Span>) {
+        match expression {
+            Expression::Identifier { name, span } => {
+                if !bindings.contains_key(name) {
+                    self.diagnostics.push(
+                        Diagnostic::error(format!("unknown name `{name}`"), span.clone())
+                            .with_help("declare the name with `let` or add it as a parameter"),
+                    );
+                }
+            }
+            Expression::ArrayLiteral { elements, .. } => {
+                for element in elements {
+                    self.analyze_expression(element, bindings);
+                }
+            }
+            Expression::ObjectLiteral { entries, .. } => {
+                let mut keys: HashMap<&str, &Span> = HashMap::new();
+                for entry in entries {
+                    if let Some(previous) = keys.insert(&entry.key, &entry.key_span) {
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                format!("duplicate object key `{}`", entry.key),
+                                entry.key_span.clone(),
+                            )
+                            .with_note(format!(
+                                "`{}` was already defined at {}:{}:{}",
+                                entry.key,
+                                previous.file,
+                                previous.start.line,
+                                previous.start.column
+                            )),
+                        );
+                    }
+                    self.analyze_expression(&entry.value, bindings);
+                }
+            }
+            Expression::Grouped { expression, .. } => {
+                self.analyze_expression(expression, bindings);
+            }
+            Expression::StringLiteral { .. }
+            | Expression::IntegerLiteral { .. }
+            | Expression::BooleanLiteral { .. }
+            | Expression::NullLiteral { .. } => {}
         }
     }
 

@@ -24,3 +24,25 @@ index() { return "Users" }
     assert!(first.contains("pub fn index() -> DensleafValue"));
     assert!(first.contains("DensleafValue::String(\"Users\".to_string())"));
 }
+
+#[test]
+fn generates_variables_and_structured_literals() {
+    let source = r#"
+controller UserController {
+index() {
+    let users = [{ name: "Justin" }]
+    let none = null
+    return users
+}
+}
+"#;
+    let lexed = lex(source, "app.dl");
+    let parsed = parse(lexed.tokens);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+
+    let generated = generate_rust(&parsed.program);
+    assert!(generated.contains("let users: DensleafValue = DensleafValue::Array"));
+    assert!(generated.contains("DensleafValue::Object"));
+    assert!(generated.contains("let none: DensleafValue = DensleafValue::Null;"));
+    assert!(generated.contains("return users.clone().into();"));
+}

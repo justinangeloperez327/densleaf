@@ -1,8 +1,8 @@
 # Densleaf
 
-Densleaf is an experimental Rust-based application framework with its own developer-facing grammar. Application authors write Densleaf source (`.dl`), not Rust. The current compiler frontend tokenizes, parses, validates, and lowers that source into generated Rust.
+Densleaf is an experimental Rust-based application framework with its own developer-facing grammar. Application authors write Densleaf source (`.dl`), not Rust. The compiler frontend tokenizes, parses, validates, and lowers that source into generated Rust.
 
-Densleaf is at the **0.1 compiler-foundation stage**. It is not production-ready.
+Densleaf has completed its **0.1 compiler foundation** and is now building the **0.2 core language**. It is not production-ready.
 
 ## Current syntax
 
@@ -15,12 +15,25 @@ model User {
 
 controller UserController {
     index() {
-        return "Users"
+        let users = []
+
+        return {
+            users: users,
+            selected: null
+        }
     }
 }
 ```
 
 The grammar above is intentionally not Rust. `model` and `controller` are first-class Densleaf concepts represented directly in the Densleaf AST. Rust is currently the first code-generation backend and remains an implementation detail.
+
+Arrays use `[]`; objects use `{}`. Densleaf does not introduce a separate collection literal.
+
+## Design direction
+
+Densleaf optimizes for code that is easy to understand rather than code with the fewest possible lines.
+
+New keywords are added only when they provide distinct semantics. Framework patterns such as services, requests, jobs, or events are not automatically promoted into grammar merely to shorten code.
 
 ## Compiler pipeline
 
@@ -47,7 +60,7 @@ Rust code generation
 - `densleaf-lexer` — lexical analysis
 - `densleaf-ast` — Densleaf-specific AST
 - `densleaf-parser` — recursive-descent parser
-- `densleaf-semantic` — initial semantic checks
+- `densleaf-semantic` — semantic checks and local name resolution
 - `densleaf-codegen` — generated Rust backend
 - `densleaf-cli` — `densleaf check` and `densleaf build`
 
@@ -60,8 +73,4 @@ cargo run -p densleaf-cli -- build examples/hello/app.dl
 
 `check` runs lexing, parsing, and semantic analysis. `build` performs the same checks and then writes generated Rust under `.densleaf/generated/`.
 
-## Intentionally not implemented
-
-The current milestone does **not** include routing, HTTP, ORM/database access, migrations, relationships, views, authentication, authorization, sessions, validation framework features, queues, cache, events, scheduling, mail, notifications, uploads, WebSockets, a template engine, LLVM/Cranelift backends, language-server support, generics, advanced pattern matching, or async language syntax.
-
-See `GRAMMAR.md`, `COMPILER.md`, and `ROADMAP.md` for the implemented boundary and direction.
+See `GRAMMAR.md`, `LANGUAGE_DESIGN.md`, `COMPILER.md`, and `ROADMAP.md` for the implemented boundary and direction.

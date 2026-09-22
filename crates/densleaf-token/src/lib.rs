@@ -45,7 +45,9 @@ impl Span {
 pub enum TokenKind {
     Model,
     Controller,
+    Let,
     Return,
+    Null,
     True,
     False,
     Identifier(String),

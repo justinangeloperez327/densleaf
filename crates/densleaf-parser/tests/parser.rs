@@ -1,4 +1,4 @@
-use densleaf_ast::{Declaration, Statement};
+use densleaf_ast::{Declaration, Expression, Statement};
 use densleaf_lexer::lex;
 use densleaf_parser::{ParseOutput, parse};
 
@@ -33,6 +33,66 @@ fn parses_controllers_methods_parameters_and_returns() {
         controller.methods[0].body[0],
         Statement::Return(_)
     ));
+}
+
+#[test]
+fn parses_variables_arrays_objects_null_and_grouping() {
+    let output = parse_source(
+        r#"controller Api {
+            index() {
+                let users = [{ name: "Justin" }, { name: "John" }]
+                let empty = []
+                let options = {}
+                let nothing = null
+                return (users)
+            }
+        }"#,
+    );
+    assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+    let Declaration::Controller(controller) = &output.program.declarations[0] else {
+        panic!("expected controller")
+    };
+    let body = &controller.methods[0].body;
+    assert_eq!(body.len(), 5);
+
+    let Statement::Let(users) = &body[0] else {
+        panic!("expected let statement")
+    };
+    let Expression::ArrayLiteral { elements, .. } = &users.initializer else {
+        panic!("expected array literal")
+    };
+    assert_eq!(elements.len(), 2);
+    assert!(matches!(elements[0], Expression::ObjectLiteral { .. }));
+
+    let Statement::Let(nothing) = &body[3] else {
+        panic!("expected let statement")
+    };
+    assert!(matches!(
+        nothing.initializer,
+        Expression::NullLiteral { .. }
+    ));
+
+    let Statement::Return(return_statement) = &body[4] else {
+        panic!("expected return statement")
+    };
+    assert!(matches!(
+        return_statement.expression,
+        Expression::Grouped { .. }
+    ));
+}
+
+#[test]
+fn accepts_trailing_commas_in_arrays_and_objects() {
+    let output = parse_source(
+        r#"controller Api {
+            index() {
+                let values = [1, 2, 3,]
+                return { values: values, empty: [], }
+            }
+        }"#,
+    );
+    assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
 }
 
 #[test]

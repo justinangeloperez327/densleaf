@@ -16,16 +16,25 @@ This roadmap is directional. Release numbers describe an intended sequence, not 
 
 ## 0.2 — Core Language
 
-- variables
+Implemented foundation:
+
+- `let` variable declarations
+- `null`
+- array literals `[]`
+- object literals `{}`
+- grouped expressions
+- local name resolution
+- duplicate local/object-key diagnostics
+
+Next:
+
 - assignment
-- expressions
+- expression operators and precedence
 - function calls
 - member access
-- if / else
+- `if / else`
 - loops
-- arrays
-- maps
-- type inference
+- richer type inference
 
 ## 0.3 — Application Model
 
@@ -36,9 +45,11 @@ This roadmap is directional. Release numbers describe an intended sequence, not 
 
 ## 0.4 — Controllers
 
-- method parameters
+- return type semantics
 - application responses
 - controller semantics
+
+Basic controller parameters already exist from the compiler-foundation stage. This milestone is for mature controller/application semantics rather than introducing parameter syntax for the first time.
 
 ## 0.5 — Routing and HTTP
 
