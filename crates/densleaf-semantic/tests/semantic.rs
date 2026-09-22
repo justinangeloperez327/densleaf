@@ -72,7 +72,11 @@ fn catches_unknown_names_duplicate_locals_and_object_keys() {
         }"#,
     );
 
-    assert!(errors.iter().any(|d| d.message.contains("unknown name `missing`")));
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("unknown name `missing`"))
+    );
     assert!(
         errors
             .iter()

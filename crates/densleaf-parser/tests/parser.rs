@@ -63,10 +63,7 @@ fn parses_variables_arrays_objects_null_and_grouping() {
         panic!("expected array literal")
     };
     assert_eq!(elements.len(), 2);
-    assert!(matches!(
-        elements[0],
-        Expression::ObjectLiteral { .. }
-    ));
+    assert!(matches!(elements[0], Expression::ObjectLiteral { .. }));
 
     let Statement::Let(nothing) = &body[3] else {
         panic!("expected let statement")
