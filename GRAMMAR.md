@@ -52,9 +52,42 @@ return_statement =
     "return" expression ;
 
 expression =
-    primary_expression ;
+    logical_or ;
 
-primary_expression =
+logical_or =
+    logical_and ("||" logical_and)* ;
+
+logical_and =
+    equality ("&&" equality)* ;
+
+equality =
+    comparison (("==" | "!=") comparison)* ;
+
+comparison =
+    additive (("<" | "<=" | ">" | ">=") additive)* ;
+
+additive =
+    multiplicative (("+" | "-") multiplicative)* ;
+
+multiplicative =
+    unary (("*" | "/" | "%") unary)* ;
+
+unary =
+      ("!" | "-") unary
+    | postfix ;
+
+postfix =
+    primary postfix_part* ;
+
+postfix_part =
+      "." identifier
+    | "(" argument_list? ")"
+    | "[" expression "]" ;
+
+argument_list =
+    expression ("," expression)* ","? ;
+
+primary =
       string_literal
     | integer_literal
     | boolean_literal
@@ -86,7 +119,35 @@ bool
 string
 ```
 
+Declared model names are also valid type references.
+
 Line comments use `//`.
+
+## Operator precedence
+
+From lowest to highest:
+
+```text
+||
+&&
+== !=
+< <= > >=
++ -
+* / %
+! -
+member access / calls / indexing
+primary values
+```
+
+Postfix expressions chain naturally:
+
+```densleaf
+User.find(id).items[0].name
+```
+
+This syntax is part of the language. Individual framework methods such as `User.find` are separate runtime/framework features and are not implied to be implemented merely because the call grammar exists.
+
+Logical `&&` and `||` have short-circuit semantics.
 
 ## Literal conventions
 
@@ -106,7 +167,7 @@ let nothing = null
 - `[]` is an array literal.
 - `{}` is an object literal.
 - `null` represents the absence of a value.
-- trailing commas are accepted in arrays and objects.
+- trailing commas are accepted in arrays, objects, and call arguments.
 - object keys are identifiers in the current grammar.
 
 A collection is **not** a separate literal. A future `Collection<T>` abstraction may provide richer sequence behavior, but it should build on normal language values rather than introduce another punctuation form.
@@ -116,29 +177,27 @@ A collection is **not** a separate literal. A future `Collection<T>` abstraction
 Variables are introduced with `let`:
 
 ```densleaf
-let users = []
-let data = { users: users }
+let score = (10 + 5) * 2
+let allowed = score >= 20 && true
+let data = { allowed: allowed }
 
 return data
 ```
 
-A local name must already exist before it can be read. Parameters are visible inside their method body. Re-declaring a parameter or local name in the same method is rejected.
+A local name must already exist before it can be read. Parameters are visible inside their method body. Top-level models and controllers are collected before body analysis, so forward references are recognized. Re-declaring a parameter or local name in the same method is rejected.
 
 ## Deliberately deferred
 
 The following remain outside the implemented grammar until their semantics are designed:
 
-- assignment after declaration
-- operators and precedence
-- function calls
-- member access
+- reassignment and mutability
 - `if / else`
 - loops
-- functions
+- standalone functions
 - user-defined general-purpose types
 - enums
 - optional types
-- type inference beyond the current value representation
+- complete static expression type checking
 - framework routing, HTTP, database queries, validation, views, jobs, events, and similar application features
 
 In particular, Densleaf does not add keywords such as `service`, `request`, `job`, or `event` merely to reduce boilerplate. A new keyword must provide distinct semantics that justify becoming part of the language.

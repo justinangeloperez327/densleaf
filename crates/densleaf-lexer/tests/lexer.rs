@@ -33,9 +33,9 @@ fn lexes_keywords_identifiers_and_literals() {
 }
 
 #[test]
-fn lexes_punctuation() {
+fn lexes_punctuation_and_operators() {
     assert_eq!(
-        kinds("{}()[]:,.="),
+        kinds("{}()[]:,.= == != ! + - * / % < <= > >= && ||"),
         vec![
             TokenKind::LeftBrace,
             TokenKind::RightBrace,
@@ -47,6 +47,20 @@ fn lexes_punctuation() {
             TokenKind::Comma,
             TokenKind::Dot,
             TokenKind::Equal,
+            TokenKind::EqualEqual,
+            TokenKind::BangEqual,
+            TokenKind::Bang,
+            TokenKind::Plus,
+            TokenKind::Minus,
+            TokenKind::Star,
+            TokenKind::Slash,
+            TokenKind::Percent,
+            TokenKind::Less,
+            TokenKind::LessEqual,
+            TokenKind::Greater,
+            TokenKind::GreaterEqual,
+            TokenKind::AndAnd,
+            TokenKind::OrOr,
             TokenKind::Eof,
         ]
     );
@@ -67,6 +81,18 @@ fn reports_invalid_characters() {
     let output = lex("model @", "app.dl");
     assert_eq!(output.diagnostics.len(), 1);
     assert!(output.diagnostics[0].message.contains("invalid character"));
+}
+
+#[test]
+fn reports_incomplete_logical_operators() {
+    let output = lex("true & false | true", "app.dl");
+    assert_eq!(output.diagnostics.len(), 2);
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.message.contains("expected a second"))
+    );
 }
 
 #[test]

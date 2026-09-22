@@ -1,4 +1,4 @@
-use densleaf_ast::{Declaration, Expression, Statement};
+use densleaf_ast::{BinaryOperator, Declaration, Expression, Statement, UnaryOperator};
 use densleaf_lexer::lex;
 use densleaf_parser::{ParseOutput, parse};
 
@@ -83,12 +83,111 @@ fn parses_variables_arrays_objects_null_and_grouping() {
 }
 
 #[test]
-fn accepts_trailing_commas_in_arrays_and_objects() {
+fn parses_operator_precedence() {
+    let output =
+        parse_source("controller Api { index() { return 1 + 2 * 3 >= 7 && !false || false } }");
+    assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+    let Declaration::Controller(controller) = &output.program.declarations[0] else {
+        panic!("expected controller")
+    };
+    let Statement::Return(return_statement) = &controller.methods[0].body[0] else {
+        panic!("expected return")
+    };
+
+    let Expression::Binary {
+        operator: BinaryOperator::Or,
+        left,
+        ..
+    } = &return_statement.expression
+    else {
+        panic!("expected logical OR at the root")
+    };
+
+    let Expression::Binary {
+        operator: BinaryOperator::And,
+        left: comparison,
+        right,
+        ..
+    } = left.as_ref()
+    else {
+        panic!("expected logical AND before OR")
+    };
+    assert!(matches!(
+        right.as_ref(),
+        Expression::Unary {
+            operator: UnaryOperator::Not,
+            ..
+        }
+    ));
+
+    let Expression::Binary {
+        operator: BinaryOperator::GreaterEqual,
+        left: additive,
+        ..
+    } = comparison.as_ref()
+    else {
+        panic!("expected comparison")
+    };
+
+    let Expression::Binary {
+        operator: BinaryOperator::Add,
+        right: multiplied,
+        ..
+    } = additive.as_ref()
+    else {
+        panic!("expected addition")
+    };
+    assert!(matches!(
+        multiplied.as_ref(),
+        Expression::Binary {
+            operator: BinaryOperator::Multiply,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn parses_member_calls_indexes_and_chains() {
+    let output = parse_source(
+        r#"controller Api {
+            show(id) {
+                let result = User.find(id).items[0].name
+                return result
+            }
+        }"#,
+    );
+    assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
+
+    let Declaration::Controller(controller) = &output.program.declarations[0] else {
+        panic!("expected controller")
+    };
+    let Statement::Let(result) = &controller.methods[0].body[0] else {
+        panic!("expected let statement")
+    };
+
+    let Expression::MemberAccess { member, object, .. } = &result.initializer else {
+        panic!("expected final member access")
+    };
+    assert_eq!(member, "name");
+
+    let Expression::Index { object, .. } = object.as_ref() else {
+        panic!("expected index before final member")
+    };
+    assert!(matches!(
+        object.as_ref(),
+        Expression::MemberAccess { member, .. } if member == "items"
+    ));
+}
+
+#[test]
+fn accepts_trailing_commas_in_arrays_objects_and_calls() {
     let output = parse_source(
         r#"controller Api {
             index() {
                 let values = [1, 2, 3,]
-                return { values: values, empty: [], }
+                let result = User.find(1, true,)
+                return { values: values, result: result, }
             }
         }"#,
     );

@@ -57,19 +57,21 @@ impl<'a> Lexer<'a> {
                 ':' => self.single(TokenKind::Colon, start),
                 ',' => self.single(TokenKind::Comma, start),
                 '.' => self.single(TokenKind::Dot, start),
-                '=' => self.single(TokenKind::Equal, start),
+                '+' => self.single(TokenKind::Plus, start),
+                '-' => self.single(TokenKind::Minus, start),
+                '*' => self.single(TokenKind::Star, start),
+                '/' => self.single(TokenKind::Slash, start),
+                '%' => self.single(TokenKind::Percent, start),
+                '=' => self.one_or_two(TokenKind::Equal, TokenKind::EqualEqual, '=', start),
+                '!' => self.one_or_two(TokenKind::Bang, TokenKind::BangEqual, '=', start),
+                '<' => self.one_or_two(TokenKind::Less, TokenKind::LessEqual, '=', start),
+                '>' => self.one_or_two(TokenKind::Greater, TokenKind::GreaterEqual, '=', start),
+                '&' => self.paired_operator('&', TokenKind::AndAnd, start),
+                '|' => self.paired_operator('|', TokenKind::OrOr, start),
                 '"' => self.lex_string(start),
                 c if c.is_ascii_digit() => self.lex_integer(start),
                 c if is_identifier_start(c) => self.lex_identifier(start),
-                _ => {
-                    self.advance();
-                    let span = self.span_from(start);
-                    self.diagnostics.push(
-                        Diagnostic::error(format!("invalid character `{ch}`"), span).with_help(
-                            "remove the character or replace it with valid Densleaf syntax",
-                        ),
-                    );
-                }
+                _ => self.invalid_character(ch, start),
             }
         }
 
@@ -118,6 +120,44 @@ impl<'a> Lexer<'a> {
     fn single(&mut self, kind: TokenKind, start: Position) {
         self.advance();
         self.tokens.push(Token::new(kind, self.span_from(start)));
+    }
+
+    fn one_or_two(&mut self, single: TokenKind, double: TokenKind, second: char, start: Position) {
+        self.advance();
+        let kind = if self.peek() == Some(second) {
+            self.advance();
+            double
+        } else {
+            single
+        };
+        self.tokens.push(Token::new(kind, self.span_from(start)));
+    }
+
+    fn paired_operator(&mut self, expected: char, kind: TokenKind, start: Position) {
+        self.advance();
+        if self.peek() == Some(expected) {
+            self.advance();
+            self.tokens.push(Token::new(kind, self.span_from(start)));
+        } else {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    format!("expected a second `{expected}`"),
+                    self.span_from(start),
+                )
+                .with_help(format!(
+                    "Densleaf uses `{expected}{expected}` for this logical operator"
+                )),
+            );
+        }
+    }
+
+    fn invalid_character(&mut self, ch: char, start: Position) {
+        self.advance();
+        let span = self.span_from(start);
+        self.diagnostics.push(
+            Diagnostic::error(format!("invalid character `{ch}`"), span)
+                .with_help("remove the character or replace it with valid Densleaf syntax"),
+        );
     }
 
     fn skip_whitespace(&mut self) {

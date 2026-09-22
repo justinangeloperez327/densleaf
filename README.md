@@ -2,7 +2,7 @@
 
 Densleaf is an experimental Rust-based application framework with its own developer-facing grammar. Application authors write Densleaf source (`.dl`), not Rust. The compiler frontend tokenizes, parses, validates, and lowers that source into generated Rust.
 
-Densleaf has completed its **0.1 compiler foundation** and is now building the **0.2 core language**. It is not production-ready.
+Densleaf has completed its **0.1 compiler foundation** and is building the **0.2 core language**. It is not production-ready.
 
 ## Current syntax
 
@@ -10,24 +10,40 @@ Densleaf has completed its **0.1 compiler foundation** and is now building the *
 model User {
     id: id
     name: string
-    email: string
+    active: bool
 }
 
 controller UserController {
     index() {
-        let users = []
+        let score = (10 + 5) * 2
+        let allowed = score >= 20 && !false
 
-        return {
-            users: users,
-            selected: null
-        }
+        let users = [
+            { name: "Justin", active: allowed },
+        ]
+
+        return users[0].name
     }
 }
 ```
 
-The grammar above is intentionally not Rust. `model` and `controller` are first-class Densleaf concepts represented directly in the Densleaf AST. Rust is currently the first code-generation backend and remains an implementation detail.
+The grammar is intentionally not Rust. `model` and `controller` are first-class Densleaf concepts represented directly in the Densleaf AST. Rust is currently the first code-generation backend and remains an implementation detail.
 
 Arrays use `[]`; objects use `{}`. Densleaf does not introduce a separate collection literal.
+
+## Current expression language
+
+Densleaf supports:
+
+- arithmetic: `+`, `-`, `*`, `/`, `%`
+- equality: `==`, `!=`
+- comparisons: `<`, `<=`, `>`, `>=`
+- logical expressions: `&&`, `||`, `!`
+- member access: `user.name`
+- calls: `target.method(value)`
+- indexing: `users[0]`
+
+The compiler understands call syntax independently from framework APIs. For example, parsing `User.find(id)` does not mean ORM lookup behavior is implemented yet.
 
 ## Design direction
 
@@ -60,7 +76,7 @@ Rust code generation
 - `densleaf-lexer` — lexical analysis
 - `densleaf-ast` — Densleaf-specific AST
 - `densleaf-parser` — recursive-descent parser
-- `densleaf-semantic` — semantic checks and local name resolution
+- `densleaf-semantic` — semantic checks and name resolution
 - `densleaf-codegen` — generated Rust backend
 - `densleaf-cli` — `densleaf check` and `densleaf build`
 

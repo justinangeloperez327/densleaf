@@ -46,3 +46,35 @@ index() {
     assert!(generated.contains("let none: DensleafValue = DensleafValue::Null;"));
     assert!(generated.contains("return users.clone().into();"));
 }
+
+#[test]
+fn lowers_operators_member_calls_and_indexes() {
+    let source = r#"
+model User { id: id }
+controller UserController {
+show(id: id) {
+    let score = (10 + 5) * 2
+    let allowed = score >= 20 && !false
+    let first = [{ name: "Justin" }][0].name
+    let found = User.find(id)
+    return found != null || allowed
+}
+}
+"#;
+    let lexed = lex(source, "app.dl");
+    let parsed = parse(lexed.tokens);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+
+    let generated = generate_rust(&parsed.program);
+    assert!(generated.contains("densleaf_multiply"));
+    assert!(generated.contains("densleaf_add"));
+    assert!(generated.contains("densleaf_greater_equal"));
+    assert!(generated.contains("densleaf_and"));
+    assert!(generated.contains("densleaf_not"));
+    assert!(generated.contains("densleaf_index"));
+    assert!(generated.contains("densleaf_get_member"));
+    assert!(generated.contains("densleaf_call_member"));
+    assert!(generated.contains("DensleafValue::Type(\"User\".to_string())"));
+    assert!(generated.contains("densleaf_not_equal"));
+    assert!(generated.contains("densleaf_or"));
+}

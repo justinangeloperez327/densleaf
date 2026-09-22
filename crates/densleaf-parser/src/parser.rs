@@ -1,6 +1,7 @@
 use densleaf_ast::{
-    ControllerDefinition, ControllerMethod, Declaration, Expression, LetStatement, ModelDefinition,
-    ModelField, ObjectEntry, Parameter, Program, ReturnStatement, Statement, TypeReference,
+    BinaryOperator, ControllerDefinition, ControllerMethod, Declaration, Expression, LetStatement,
+    ModelDefinition, ModelField, ObjectEntry, Parameter, Program, ReturnStatement, Statement,
+    TypeReference, UnaryOperator,
 };
 use densleaf_diagnostic::Diagnostic;
 use densleaf_token::{Span, Token, TokenKind};
@@ -266,7 +267,248 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Option<Expression> {
-        self.parse_primary_expression()
+        self.parse_or_expression()
+    }
+
+    fn parse_or_expression(&mut self) -> Option<Expression> {
+        let mut expression = self.parse_and_expression()?;
+
+        while self.match_simple(&TokenKind::OrOr) {
+            let right = self.parse_and_expression()?;
+            let span = expression.span().cover(right.span());
+            expression = Expression::Binary {
+                left: Box::new(expression),
+                operator: BinaryOperator::Or,
+                right: Box::new(right),
+                span,
+            };
+        }
+
+        Some(expression)
+    }
+
+    fn parse_and_expression(&mut self) -> Option<Expression> {
+        let mut expression = self.parse_equality_expression()?;
+
+        while self.match_simple(&TokenKind::AndAnd) {
+            let right = self.parse_equality_expression()?;
+            let span = expression.span().cover(right.span());
+            expression = Expression::Binary {
+                left: Box::new(expression),
+                operator: BinaryOperator::And,
+                right: Box::new(right),
+                span,
+            };
+        }
+
+        Some(expression)
+    }
+
+    fn parse_equality_expression(&mut self) -> Option<Expression> {
+        let mut expression = self.parse_comparison_expression()?;
+
+        loop {
+            let operator = if self.match_simple(&TokenKind::EqualEqual) {
+                Some(BinaryOperator::Equal)
+            } else if self.match_simple(&TokenKind::BangEqual) {
+                Some(BinaryOperator::NotEqual)
+            } else {
+                None
+            };
+
+            let Some(operator) = operator else {
+                break;
+            };
+
+            let right = self.parse_comparison_expression()?;
+            let span = expression.span().cover(right.span());
+            expression = Expression::Binary {
+                left: Box::new(expression),
+                operator,
+                right: Box::new(right),
+                span,
+            };
+        }
+
+        Some(expression)
+    }
+
+    fn parse_comparison_expression(&mut self) -> Option<Expression> {
+        let mut expression = self.parse_additive_expression()?;
+
+        loop {
+            let operator = if self.match_simple(&TokenKind::Less) {
+                Some(BinaryOperator::Less)
+            } else if self.match_simple(&TokenKind::LessEqual) {
+                Some(BinaryOperator::LessEqual)
+            } else if self.match_simple(&TokenKind::Greater) {
+                Some(BinaryOperator::Greater)
+            } else if self.match_simple(&TokenKind::GreaterEqual) {
+                Some(BinaryOperator::GreaterEqual)
+            } else {
+                None
+            };
+
+            let Some(operator) = operator else {
+                break;
+            };
+
+            let right = self.parse_additive_expression()?;
+            let span = expression.span().cover(right.span());
+            expression = Expression::Binary {
+                left: Box::new(expression),
+                operator,
+                right: Box::new(right),
+                span,
+            };
+        }
+
+        Some(expression)
+    }
+
+    fn parse_additive_expression(&mut self) -> Option<Expression> {
+        let mut expression = self.parse_multiplicative_expression()?;
+
+        loop {
+            let operator = if self.match_simple(&TokenKind::Plus) {
+                Some(BinaryOperator::Add)
+            } else if self.match_simple(&TokenKind::Minus) {
+                Some(BinaryOperator::Subtract)
+            } else {
+                None
+            };
+
+            let Some(operator) = operator else {
+                break;
+            };
+
+            let right = self.parse_multiplicative_expression()?;
+            let span = expression.span().cover(right.span());
+            expression = Expression::Binary {
+                left: Box::new(expression),
+                operator,
+                right: Box::new(right),
+                span,
+            };
+        }
+
+        Some(expression)
+    }
+
+    fn parse_multiplicative_expression(&mut self) -> Option<Expression> {
+        let mut expression = self.parse_unary_expression()?;
+
+        loop {
+            let operator = if self.match_simple(&TokenKind::Star) {
+                Some(BinaryOperator::Multiply)
+            } else if self.match_simple(&TokenKind::Slash) {
+                Some(BinaryOperator::Divide)
+            } else if self.match_simple(&TokenKind::Percent) {
+                Some(BinaryOperator::Remainder)
+            } else {
+                None
+            };
+
+            let Some(operator) = operator else {
+                break;
+            };
+
+            let right = self.parse_unary_expression()?;
+            let span = expression.span().cover(right.span());
+            expression = Expression::Binary {
+                left: Box::new(expression),
+                operator,
+                right: Box::new(right),
+                span,
+            };
+        }
+
+        Some(expression)
+    }
+
+    fn parse_unary_expression(&mut self) -> Option<Expression> {
+        let (operator, start) = if self.check_simple(&TokenKind::Bang) {
+            (UnaryOperator::Not, self.advance().span.clone())
+        } else if self.check_simple(&TokenKind::Minus) {
+            (UnaryOperator::Negate, self.advance().span.clone())
+        } else {
+            return self.parse_postfix_expression();
+        };
+
+        let operand = self.parse_unary_expression()?;
+        let span = start.cover(operand.span());
+        Some(Expression::Unary {
+            operator,
+            operand: Box::new(operand),
+            span,
+        })
+    }
+
+    fn parse_postfix_expression(&mut self) -> Option<Expression> {
+        let mut expression = self.parse_primary_expression()?;
+
+        loop {
+            if self.match_simple(&TokenKind::Dot) {
+                let (member, member_span) =
+                    self.expect_identifier("expected a member name after `.`")?;
+                let span = expression.span().cover(&member_span);
+                expression = Expression::MemberAccess {
+                    object: Box::new(expression),
+                    member,
+                    member_span,
+                    span,
+                };
+                continue;
+            }
+
+            if self.match_simple(&TokenKind::LeftParen) {
+                expression = self.finish_call_expression(expression)?;
+                continue;
+            }
+
+            if self.match_simple(&TokenKind::LeftBracket) {
+                let index = self.parse_expression()?;
+                let end = self.expect_simple_span(
+                    TokenKind::RightBracket,
+                    "expected `]` after the index expression",
+                )?;
+                let span = expression.span().cover(&end);
+                expression = Expression::Index {
+                    object: Box::new(expression),
+                    index: Box::new(index),
+                    span,
+                };
+                continue;
+            }
+
+            break;
+        }
+
+        Some(expression)
+    }
+
+    fn finish_call_expression(&mut self, callee: Expression) -> Option<Expression> {
+        let mut arguments = Vec::new();
+
+        while !self.check_simple(&TokenKind::RightParen) && !self.is_eof() {
+            arguments.push(self.parse_expression()?);
+
+            if !self.match_simple(&TokenKind::Comma) {
+                break;
+            }
+        }
+
+        let end = self.expect_simple_span(
+            TokenKind::RightParen,
+            "expected `)` after the call arguments",
+        )?;
+        let span = callee.span().cover(&end);
+
+        Some(Expression::Call {
+            callee: Box::new(callee),
+            arguments,
+            span,
+        })
     }
 
     fn parse_primary_expression(&mut self) -> Option<Expression> {

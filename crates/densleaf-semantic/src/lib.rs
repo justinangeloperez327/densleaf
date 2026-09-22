@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use densleaf_ast::{
     ControllerDefinition, Declaration, Expression, ModelDefinition, Program, Statement,
@@ -9,6 +9,27 @@ use densleaf_token::Span;
 
 const BUILTIN_TYPES: &[&str] = &["id", "int", "bool", "string"];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GlobalKind {
+    Model,
+    Controller,
+}
+
+impl GlobalKind {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Model => "model",
+            Self::Controller => "controller",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct GlobalSymbol {
+    kind: GlobalKind,
+    span: Span,
+}
+
 pub fn analyze(program: &Program) -> Vec<Diagnostic> {
     let mut analyzer = Analyzer::default();
     analyzer.analyze_program(program);
@@ -18,53 +39,61 @@ pub fn analyze(program: &Program) -> Vec<Diagnostic> {
 #[derive(Default)]
 struct Analyzer {
     diagnostics: Vec<Diagnostic>,
+    globals: HashMap<String, GlobalSymbol>,
+    model_names: HashSet<String>,
 }
 
 impl Analyzer {
     fn analyze_program(&mut self, program: &Program) {
-        let mut models: HashMap<&str, &Span> = HashMap::new();
-        let mut controllers: HashMap<&str, &Span> = HashMap::new();
+        self.collect_globals(program);
 
         for declaration in &program.declarations {
             match declaration {
+                Declaration::Model(model) => self.analyze_model(model),
+                Declaration::Controller(controller) => self.analyze_controller(controller),
+            }
+        }
+    }
+
+    fn collect_globals(&mut self, program: &Program) {
+        for declaration in &program.declarations {
+            let (name, name_span, kind) = match declaration {
                 Declaration::Model(model) => {
-                    if let Some(previous) = models.insert(&model.name, &model.name_span) {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                format!("duplicate model `{}`", model.name),
-                                model.name_span.clone(),
-                            )
-                            .with_note(format!(
-                                "`{}` was already declared at {}:{}:{}",
-                                model.name,
-                                previous.file,
-                                previous.start.line,
-                                previous.start.column
-                            )),
-                        );
-                    }
-                    self.analyze_model(model);
+                    self.model_names.insert(model.name.clone());
+                    (&model.name, &model.name_span, GlobalKind::Model)
                 }
-                Declaration::Controller(controller) => {
-                    if let Some(previous) =
-                        controllers.insert(&controller.name, &controller.name_span)
-                    {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                format!("duplicate controller `{}`", controller.name),
-                                controller.name_span.clone(),
-                            )
-                            .with_note(format!(
-                                "`{}` was already declared at {}:{}:{}",
-                                controller.name,
-                                previous.file,
-                                previous.start.line,
-                                previous.start.column
-                            )),
-                        );
-                    }
-                    self.analyze_controller(controller);
-                }
+                Declaration::Controller(controller) => (
+                    &controller.name,
+                    &controller.name_span,
+                    GlobalKind::Controller,
+                ),
+            };
+
+            if let Some(previous) = self.globals.get(name) {
+                let message = if previous.kind == kind {
+                    format!("duplicate {} `{name}`", kind.label())
+                } else {
+                    format!("duplicate top-level declaration `{name}`")
+                };
+
+                self.diagnostics
+                    .push(
+                        Diagnostic::error(message, name_span.clone()).with_note(format!(
+                            "`{name}` was already declared as a {} at {}:{}:{}",
+                            previous.kind.label(),
+                            previous.span.file,
+                            previous.span.start.line,
+                            previous.span.start.column
+                        )),
+                    );
+            } else {
+                self.globals.insert(
+                    name.clone(),
+                    GlobalSymbol {
+                        kind,
+                        span: name_span.clone(),
+                    },
+                );
             }
         }
     }
@@ -177,10 +206,12 @@ impl Analyzer {
     fn analyze_expression(&mut self, expression: &Expression, bindings: &HashMap<String, Span>) {
         match expression {
             Expression::Identifier { name, span } => {
-                if !bindings.contains_key(name) {
+                if !bindings.contains_key(name) && !self.globals.contains_key(name) {
                     self.diagnostics.push(
                         Diagnostic::error(format!("unknown name `{name}`"), span.clone())
-                            .with_help("declare the name with `let` or add it as a parameter"),
+                            .with_help(
+                                "declare the name with `let`, add it as a parameter, or reference a declared top-level symbol",
+                            ),
                     );
                 }
             }
@@ -210,8 +241,31 @@ impl Analyzer {
                     self.analyze_expression(&entry.value, bindings);
                 }
             }
-            Expression::Grouped { expression, .. } => {
+            Expression::Grouped { expression, .. }
+            | Expression::Unary {
+                operand: expression,
+                ..
+            } => {
                 self.analyze_expression(expression, bindings);
+            }
+            Expression::Binary { left, right, .. } => {
+                self.analyze_expression(left, bindings);
+                self.analyze_expression(right, bindings);
+            }
+            Expression::MemberAccess { object, .. } => {
+                self.analyze_expression(object, bindings);
+            }
+            Expression::Call {
+                callee, arguments, ..
+            } => {
+                self.analyze_expression(callee, bindings);
+                for argument in arguments {
+                    self.analyze_expression(argument, bindings);
+                }
+            }
+            Expression::Index { object, index, .. } => {
+                self.analyze_expression(object, bindings);
+                self.analyze_expression(index, bindings);
             }
             Expression::StringLiteral { .. }
             | Expression::IntegerLiteral { .. }
@@ -221,13 +275,15 @@ impl Analyzer {
     }
 
     fn check_type(&mut self, type_reference: &TypeReference) {
-        if !BUILTIN_TYPES.contains(&type_reference.name.as_str()) {
+        if !BUILTIN_TYPES.contains(&type_reference.name.as_str())
+            && !self.model_names.contains(&type_reference.name)
+        {
             self.diagnostics.push(
                 Diagnostic::error(
                     format!("unknown type `{}`", type_reference.name),
                     type_reference.span.clone(),
                 )
-                .with_help("use one of the currently supported types: id, int, bool, string"),
+                .with_help("use a built-in type (id, int, bool, string) or a declared model type"),
             );
         }
     }

@@ -41,6 +41,16 @@ fn catches_duplicate_controllers_methods_and_parameters() {
 }
 
 #[test]
+fn catches_cross_kind_top_level_name_collisions() {
+    let errors = diagnostics("model User { id: id } controller User {}");
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("duplicate top-level declaration"))
+    );
+}
+
+#[test]
 fn catches_unknown_types() {
     let errors = diagnostics("model User { age: number }");
     assert_eq!(errors.len(), 1);
@@ -48,14 +58,24 @@ fn catches_unknown_types() {
 }
 
 #[test]
-fn resolves_parameters_and_local_bindings() {
+fn accepts_declared_models_as_types_even_when_declared_later() {
+    let errors = diagnostics(
+        "model Post { author: User } controller Api { show(user: User) { return user } } model User { id: id }",
+    );
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[test]
+fn resolves_parameters_locals_and_top_level_symbols() {
     let errors = diagnostics(
         r#"controller Api {
             show(id) {
                 let selected = id
-                return { selected: selected }
+                let found = User.find(selected)
+                return found
             }
-        }"#,
+        }
+        model User { id: id }"#,
     );
     assert!(errors.is_empty(), "{errors:?}");
 }

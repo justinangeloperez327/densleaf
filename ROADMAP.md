@@ -25,13 +25,20 @@ Implemented foundation:
 - grouped expressions
 - local name resolution
 - duplicate local/object-key diagnostics
+- arithmetic operators and precedence
+- equality and comparison operators
+- short-circuit logical operators
+- unary `!` and `-`
+- member access
+- function/method call expressions
+- index expressions
+- forward top-level symbol resolution
+- declared model type references
 
 Next:
 
-- assignment
-- expression operators and precedence
-- function calls
-- member access
+- static expression type checking
+- reassignment and mutability semantics
 - `if / else`
 - loops
 - richer type inference
