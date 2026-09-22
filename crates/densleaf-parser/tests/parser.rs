@@ -84,9 +84,8 @@ fn parses_variables_arrays_objects_null_and_grouping() {
 
 #[test]
 fn parses_operator_precedence() {
-    let output = parse_source(
-        "controller Api { index() { return 1 + 2 * 3 >= 7 && !false || false } }",
-    );
+    let output =
+        parse_source("controller Api { index() { return 1 + 2 * 3 >= 7 && !false || false } }");
     assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
 
     let Declaration::Controller(controller) = &output.program.declarations[0] else {

@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    fmt::Write,
-};
+use std::{collections::HashSet, fmt::Write};
 
 use densleaf_ast::{BinaryOperator, Declaration, Expression, Program, Statement, UnaryOperator};
 

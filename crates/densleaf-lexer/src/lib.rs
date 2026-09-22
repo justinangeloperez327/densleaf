@@ -122,13 +122,7 @@ impl<'a> Lexer<'a> {
         self.tokens.push(Token::new(kind, self.span_from(start)));
     }
 
-    fn one_or_two(
-        &mut self,
-        single: TokenKind,
-        double: TokenKind,
-        second: char,
-        start: Position,
-    ) {
+    fn one_or_two(&mut self, single: TokenKind, double: TokenKind, second: char, start: Position) {
         self.advance();
         let kind = if self.peek() == Some(second) {
             self.advance();

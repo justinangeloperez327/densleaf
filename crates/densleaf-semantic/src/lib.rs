@@ -62,9 +62,11 @@ impl Analyzer {
                     self.model_names.insert(model.name.clone());
                     (&model.name, &model.name_span, GlobalKind::Model)
                 }
-                Declaration::Controller(controller) => {
-                    (&controller.name, &controller.name_span, GlobalKind::Controller)
-                }
+                Declaration::Controller(controller) => (
+                    &controller.name,
+                    &controller.name_span,
+                    GlobalKind::Controller,
+                ),
             };
 
             if let Some(previous) = self.globals.get(name) {
@@ -74,15 +76,16 @@ impl Analyzer {
                     format!("duplicate top-level declaration `{name}`")
                 };
 
-                self.diagnostics.push(
-                    Diagnostic::error(message, name_span.clone()).with_note(format!(
-                        "`{name}` was already declared as a {} at {}:{}:{}",
-                        previous.kind.label(),
-                        previous.span.file,
-                        previous.span.start.line,
-                        previous.span.start.column
-                    )),
-                );
+                self.diagnostics
+                    .push(
+                        Diagnostic::error(message, name_span.clone()).with_note(format!(
+                            "`{name}` was already declared as a {} at {}:{}:{}",
+                            previous.kind.label(),
+                            previous.span.file,
+                            previous.span.start.line,
+                            previous.span.start.column
+                        )),
+                    );
             } else {
                 self.globals.insert(
                     name.clone(),
@@ -240,7 +243,8 @@ impl Analyzer {
             }
             Expression::Grouped { expression, .. }
             | Expression::Unary {
-                operand: expression, ..
+                operand: expression,
+                ..
             } => {
                 self.analyze_expression(expression, bindings);
             }
@@ -279,9 +283,7 @@ impl Analyzer {
                     format!("unknown type `{}`", type_reference.name),
                     type_reference.span.clone(),
                 )
-                .with_help(
-                    "use a built-in type (id, int, bool, string) or a declared model type",
-                ),
+                .with_help("use a built-in type (id, int, bool, string) or a declared model type"),
             );
         }
     }
