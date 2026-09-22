@@ -43,7 +43,9 @@ impl Analyzer {
                     self.analyze_model(model);
                 }
                 Declaration::Controller(controller) => {
-                    if let Some(previous) = controllers.insert(&controller.name, &controller.name_span) {
+                    if let Some(previous) =
+                        controllers.insert(&controller.name, &controller.name_span)
+                    {
                         self.diagnostics.push(
                             Diagnostic::error(
                                 format!("duplicate controller `{}`", controller.name),

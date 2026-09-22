@@ -49,7 +49,9 @@ impl Parser {
                     let span = self.peek().span.clone();
                     self.diagnostics.push(
                         Diagnostic::error("expected `model` or `controller` declaration", span)
-                            .with_help("start a top-level declaration with `model` or `controller`"),
+                            .with_help(
+                                "start a top-level declaration with `model` or `controller`",
+                            ),
                     );
                     self.advance();
                 }
@@ -78,8 +80,8 @@ impl Parser {
             }
         }
 
-        let end = self
-            .expect_simple_span(TokenKind::RightBrace, "expected `}` to close the model")?;
+        let end =
+            self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the model")?;
         Some(ModelDefinition {
             name,
             name_span,
@@ -117,7 +119,10 @@ impl Parser {
     fn parse_controller(&mut self) -> Option<ControllerDefinition> {
         let start = self.advance().span.clone();
         let (name, name_span) = self.expect_identifier("expected a controller name")?;
-        if !self.expect_simple(TokenKind::LeftBrace, "expected `{` after the controller name") {
+        if !self.expect_simple(
+            TokenKind::LeftBrace,
+            "expected `{` after the controller name",
+        ) {
             return None;
         }
 
@@ -200,7 +205,10 @@ impl Parser {
     }
 
     fn parse_block(&mut self) -> Option<(Vec<Statement>, Span)> {
-        let start = self.expect_simple_span(TokenKind::LeftBrace, "expected `{` to start the method body")?;
+        let start = self.expect_simple_span(
+            TokenKind::LeftBrace,
+            "expected `{` to start the method body",
+        )?;
         let mut statements = Vec::new();
 
         while !self.check_simple(&TokenKind::RightBrace) && !self.is_eof() {
@@ -213,15 +221,19 @@ impl Parser {
                 _ => {
                     let span = self.peek().span.clone();
                     self.diagnostics.push(
-                        Diagnostic::error("expected a `return` statement", span)
-                            .with_help("controller methods currently support only basic `return` statements"),
+                        Diagnostic::error("expected a `return` statement", span).with_help(
+                            "controller methods currently support only basic `return` statements",
+                        ),
                     );
                     self.advance();
                 }
             }
         }
 
-        let end = self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the method body")?;
+        let end = self.expect_simple_span(
+            TokenKind::RightBrace,
+            "expected `}` to close the method body",
+        )?;
         Some((statements, start.cover(&end)))
     }
 

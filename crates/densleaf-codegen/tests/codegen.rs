@@ -2,7 +2,6 @@ use densleaf_codegen::generate_rust;
 use densleaf_lexer::lex;
 use densleaf_parser::parse;
 
-
 #[test]
 fn generation_is_deterministic_and_contains_models_and_controllers() {
     let source = r#"

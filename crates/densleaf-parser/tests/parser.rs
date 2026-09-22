@@ -1,7 +1,6 @@
 use densleaf_ast::{Declaration, Statement};
 use densleaf_lexer::lex;
-use densleaf_parser::{parse, ParseOutput};
-
+use densleaf_parser::{ParseOutput, parse};
 
 fn parse_source(source: &str) -> ParseOutput {
     let lexed = lex(source, "test.dl");
@@ -23,9 +22,8 @@ fn parses_model_declarations() {
 
 #[test]
 fn parses_controllers_methods_parameters_and_returns() {
-    let output = parse_source(
-        "controller UserController { show(id: id, verbose: bool) { return true } }",
-    );
+    let output =
+        parse_source("controller UserController { show(id: id, verbose: bool) { return true } }");
     assert!(output.diagnostics.is_empty(), "{:?}", output.diagnostics);
     let Declaration::Controller(controller) = &output.program.declarations[0] else {
         panic!("expected controller")

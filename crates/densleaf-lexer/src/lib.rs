@@ -65,8 +65,9 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     let span = self.span_from(start);
                     self.diagnostics.push(
-                        Diagnostic::error(format!("invalid character `{ch}`"), span)
-                            .with_help("remove the character or replace it with valid Densleaf syntax"),
+                        Diagnostic::error(format!("invalid character `{ch}`"), span).with_help(
+                            "remove the character or replace it with valid Densleaf syntax",
+                        ),
                     );
                 }
             }
@@ -161,12 +162,16 @@ impl<'a> Lexer<'a> {
         }
         let text = &self.source[start_offset..self.offset];
         match text.parse::<i64>() {
-            Ok(value) => self
-                .tokens
-                .push(Token::new(TokenKind::IntegerLiteral(value), self.span_from(start))),
+            Ok(value) => self.tokens.push(Token::new(
+                TokenKind::IntegerLiteral(value),
+                self.span_from(start),
+            )),
             Err(_) => self.diagnostics.push(
-                Diagnostic::error("integer literal is outside the supported range", self.span_from(start))
-                    .with_help("use an integer no larger than 9223372036854775807"),
+                Diagnostic::error(
+                    "integer literal is outside the supported range",
+                    self.span_from(start),
+                )
+                .with_help("use an integer no larger than 9223372036854775807"),
             ),
         }
     }

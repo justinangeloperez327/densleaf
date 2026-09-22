@@ -3,7 +3,6 @@ use densleaf_lexer::lex;
 use densleaf_parser::parse;
 use densleaf_semantic::analyze;
 
-
 fn diagnostics(source: &str) -> Vec<Diagnostic> {
     let lexed = lex(source, "test.dl");
     assert!(lexed.diagnostics.is_empty());
@@ -14,9 +13,7 @@ fn diagnostics(source: &str) -> Vec<Diagnostic> {
 
 #[test]
 fn catches_duplicate_models_and_fields() {
-    let errors = diagnostics(
-        "model User { name: string name: string } model User { id: id }",
-    );
+    let errors = diagnostics("model User { name: string name: string } model User { id: id }");
     assert!(errors.iter().any(|d| d.message.contains("duplicate model")));
     assert!(errors.iter().any(|d| d.message.contains("duplicate field")));
 }
@@ -26,9 +23,21 @@ fn catches_duplicate_controllers_methods_and_parameters() {
     let errors = diagnostics(
         "controller Api { show(id, id) { return true } show() { return false } } controller Api {}",
     );
-    assert!(errors.iter().any(|d| d.message.contains("duplicate controller `Api`")));
-    assert!(errors.iter().any(|d| d.message.contains("duplicate controller method")));
-    assert!(errors.iter().any(|d| d.message.contains("duplicate parameter")));
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("duplicate controller `Api`"))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("duplicate controller method"))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message.contains("duplicate parameter"))
+    );
 }
 
 #[test]

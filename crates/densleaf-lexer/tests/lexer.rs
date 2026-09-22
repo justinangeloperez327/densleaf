@@ -1,7 +1,6 @@
 use densleaf_lexer::*;
 use densleaf_token::TokenKind;
 
-
 fn kinds(source: &str) -> Vec<TokenKind> {
     lex(source, "test.dl")
         .tokens
@@ -70,5 +69,9 @@ fn reports_invalid_characters() {
 fn reports_unterminated_strings() {
     let output = lex("return \"hello", "app.dl");
     assert_eq!(output.diagnostics.len(), 1);
-    assert!(output.diagnostics[0].message.contains("unterminated string"));
+    assert!(
+        output.diagnostics[0]
+            .message
+            .contains("unterminated string")
+    );
 }

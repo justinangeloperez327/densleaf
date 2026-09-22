@@ -94,11 +94,7 @@ mod tests {
 
     #[test]
     fn renders_source_aware_diagnostics() {
-        let span = Span::new(
-            "app.dl",
-            Position::new(13, 2, 5),
-            Position::new(17, 2, 9),
-        );
+        let span = Span::new("app.dl", Position::new(13, 2, 5), Position::new(17, 2, 9));
         let diagnostic = Diagnostic::error("duplicate field `name`", span)
             .with_help("rename or remove the duplicate field");
         let rendered = diagnostic.render("model User {\n    name: string\n}");
