@@ -81,16 +81,12 @@ impl Analyzer {
                     &middleware.name_span,
                     GlobalKind::Middleware,
                 ),
-                Declaration::Migration(migration) => (
-                    &migration.name,
-                    &migration.name_span,
-                    GlobalKind::Migration,
-                ),
-                Declaration::Policy(policy) => (
-                    &policy.name,
-                    &policy.name_span,
-                    GlobalKind::Policy,
-                ),
+                Declaration::Migration(migration) => {
+                    (&migration.name, &migration.name_span, GlobalKind::Migration)
+                }
+                Declaration::Policy(policy) => {
+                    (&policy.name, &policy.name_span, GlobalKind::Policy)
+                }
             };
 
             if let Some(previous) = self.globals.get(name) {
@@ -152,7 +148,11 @@ impl Analyzer {
     fn analyze_middleware(&mut self, middleware: &MiddlewareDefinition) {
         self.analyze_methods("middleware", &middleware.name, &middleware.methods);
 
-        if !middleware.methods.iter().any(|method| method.name == "handle") {
+        if !middleware
+            .methods
+            .iter()
+            .any(|method| method.name == "handle")
+        {
             self.diagnostics.push(
                 Diagnostic::error(
                     format!("middleware `{}` must define `handle`", middleware.name),

@@ -147,9 +147,8 @@ fn validates_middleware_migration_and_policy_contracts() {
 
 #[test]
 fn application_declarations_share_the_top_level_namespace() {
-    let errors = diagnostics(
-        "model User { id: id } middleware User { handle(request) { return request } }",
-    );
+    let errors =
+        diagnostics("model User { id: id } middleware User { handle(request) { return request } }");
     assert!(
         errors
             .iter()

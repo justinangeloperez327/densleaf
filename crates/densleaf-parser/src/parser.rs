@@ -212,10 +212,8 @@ impl Parser {
             }
         }
 
-        let end = self.expect_simple_span(
-            TokenKind::RightBrace,
-            "expected `}` to close the migration",
-        )?;
+        let end =
+            self.expect_simple_span(TokenKind::RightBrace, "expected `}` to close the migration")?;
         Some(MigrationDefinition {
             name,
             name_span,
@@ -232,10 +230,7 @@ impl Parser {
         }
         let (target_name, target_span) =
             self.expect_identifier("expected a model name after `for`")?;
-        if !self.expect_simple(
-            TokenKind::LeftBrace,
-            "expected `{` after the policy target",
-        ) {
+        if !self.expect_simple(TokenKind::LeftBrace, "expected `{` after the policy target") {
             return None;
         }
 
