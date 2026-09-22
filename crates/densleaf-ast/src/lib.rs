@@ -12,21 +12,33 @@ pub enum Declaration {
     Middleware(MiddlewareDefinition),
     Migration(MigrationDefinition),
     Policy(PolicyDefinition),
+    Event(EventDefinition),
+    Listener(ListenerDefinition),
+    Notification(NotificationDefinition),
+    Mail(MailDefinition),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FieldDefinition {
+    pub name: String,
+    pub name_span: Span,
+    pub type_reference: TypeReference,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelDefinition {
     pub name: String,
     pub name_span: Span,
-    pub fields: Vec<ModelField>,
+    pub fields: Vec<FieldDefinition>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModelField {
+pub struct EventDefinition {
     pub name: String,
     pub name_span: Span,
-    pub type_reference: TypeReference,
+    pub fields: Vec<FieldDefinition>,
     pub span: Span,
 }
 
@@ -59,6 +71,31 @@ pub struct PolicyDefinition {
     pub name: String,
     pub name_span: Span,
     pub target: TypeReference,
+    pub methods: Vec<MethodDefinition>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListenerDefinition {
+    pub name: String,
+    pub name_span: Span,
+    pub event: TypeReference,
+    pub methods: Vec<MethodDefinition>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NotificationDefinition {
+    pub name: String,
+    pub name_span: Span,
+    pub methods: Vec<MethodDefinition>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MailDefinition {
+    pub name: String,
+    pub name_span: Span,
     pub methods: Vec<MethodDefinition>,
     pub span: Span,
 }

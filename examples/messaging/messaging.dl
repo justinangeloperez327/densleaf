@@ -1,0 +1,34 @@
+model User {
+    id: id
+    name: string
+}
+
+event UserCreated {
+    user: User
+}
+
+listener SendWelcomeMail listens UserCreated {
+    handle(event: UserCreated) {
+        return event
+    }
+}
+
+notification WelcomeNotification {
+    channels() {
+        return ["mail"]
+    }
+
+    message(user: User) {
+        return "Welcome " + user.name
+    }
+}
+
+mail WelcomeMail {
+    subject() {
+        return "Welcome"
+    }
+
+    body(user: User) {
+        return "Hello " + user.name
+    }
+}

@@ -14,6 +14,10 @@ pub fn generate_rust(program: &Program) -> String {
             Declaration::Middleware(middleware) => middleware.name.clone(),
             Declaration::Migration(migration) => migration.name.clone(),
             Declaration::Policy(policy) => policy.name.clone(),
+            Declaration::Event(event) => event.name.clone(),
+            Declaration::Listener(listener) => listener.name.clone(),
+            Declaration::Notification(notification) => notification.name.clone(),
+            Declaration::Mail(mail) => mail.name.clone(),
         })
         .collect::<HashSet<_>>();
 
@@ -73,8 +77,55 @@ pub fn generate_rust(program: &Program) -> String {
                     &mut output,
                     &policy.name,
                     "policy",
-                    Some(&policy.target.name),
+                    Some(("TARGET_MODEL", &policy.target.name)),
                     &policy.methods,
+                    &globals,
+                );
+            }
+            Declaration::Event(event) => {
+                writeln!(output, "#[derive(Debug, Clone, PartialEq)]").unwrap();
+                writeln!(output, "pub struct {} {{", event.name).unwrap();
+                for field in &event.fields {
+                    writeln!(
+                        output,
+                        "    pub {}: {},",
+                        field.name,
+                        rust_type(&field.type_reference.name)
+                    )
+                    .unwrap();
+                }
+                output.push_str("}\n");
+                writeln!(output, "\nimpl {} {{", event.name).unwrap();
+                output.push_str("    pub const DENSLEAF_KIND: &'static str = \"event\";\n");
+                output.push_str("}\n\n");
+            }
+            Declaration::Listener(listener) => {
+                write_method_container(
+                    &mut output,
+                    &listener.name,
+                    "listener",
+                    Some(("EVENT_NAME", &listener.event.name)),
+                    &listener.methods,
+                    &globals,
+                );
+            }
+            Declaration::Notification(notification) => {
+                write_method_container(
+                    &mut output,
+                    &notification.name,
+                    "notification",
+                    None,
+                    &notification.methods,
+                    &globals,
+                );
+            }
+            Declaration::Mail(mail) => {
+                write_method_container(
+                    &mut output,
+                    &mail.name,
+                    "mail",
+                    None,
+                    &mail.methods,
                     &globals,
                 );
             }
@@ -88,7 +139,7 @@ fn write_method_container(
     output: &mut String,
     name: &str,
     kind: &str,
-    policy_target: Option<&str>,
+    metadata: Option<(&str, &str)>,
     methods: &[MethodDefinition],
     globals: &HashSet<String>,
 ) {
@@ -100,12 +151,8 @@ fn write_method_container(
     )
     .unwrap();
 
-    if let Some(target) = policy_target {
-        writeln!(
-            output,
-            "    pub const TARGET_MODEL: &'static str = {target:?};"
-        )
-        .unwrap();
+    if let Some((key, value)) = metadata {
+        writeln!(output, "    pub const {key}: &'static str = {value:?};").unwrap();
     }
 
     for method in methods {

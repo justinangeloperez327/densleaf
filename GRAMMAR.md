@@ -17,7 +17,11 @@ declaration =
     | controller_declaration
     | middleware_declaration
     | migration_declaration
-    | policy_declaration ;
+    | policy_declaration
+    | event_declaration
+    | listener_declaration
+    | notification_declaration
+    | mail_declaration ;
 
 model_declaration =
     "model" identifier "{"
@@ -50,8 +54,31 @@ policy_declaration =
         method_declaration*
     "}" ;
 
+event_declaration =
+    "event" identifier "{"
+        field_declaration*
+    "}" ;
+
+listener_declaration =
+    "listener" identifier "listens" identifier "{"
+        method_declaration*
+    "}" ;
+
+notification_declaration =
+    "notification" identifier "{"
+        method_declaration*
+    "}" ;
+
+mail_declaration =
+    "mail" identifier "{"
+        method_declaration*
+    "}" ;
+
 method_declaration =
     identifier "(" parameter_list? ")" block ;
+
+field_declaration =
+    identifier ":" type_reference ;
 
 parameter_list =
     parameter ("," parameter)* ;
@@ -140,9 +167,11 @@ bool
 string
 ```
 
-Declared model names are also valid type references.
+Declared model and event names are also valid type references.
 
 Line comments use `//`.
+
+Declaration words such as `model`, `event`, `listener`, `notification`, and `mail` are contextual keywords. They introduce declarations at the top level, but they remain valid names where the grammar expects an identifier. This keeps natural code such as `handle(event: UserCreated)` valid instead of forcing artificial variable names.
 
 ## Operator precedence
 
@@ -209,7 +238,7 @@ A local name must already exist before it can be read. Parameters are visible in
 
 ## First-class application declarations
 
-Densleaf treats three additional framework concepts as grammar because each carries compiler-visible semantics:
+Densleaf treats framework concepts as grammar only when each carries compiler-visible semantics:
 
 ```densleaf
 middleware AuthMiddleware {
@@ -228,13 +257,47 @@ policy UserPolicy for User {
         return true
     }
 }
+
+event UserCreated {
+    user: User
+}
+
+listener SendWelcomeMail listens UserCreated {
+    handle(event: UserCreated) {
+        return event
+    }
+}
+
+notification WelcomeNotification {
+    channels() {
+        return ["mail"]
+    }
+
+    message(user: User) {
+        return "Welcome"
+    }
+}
+
+mail WelcomeMail {
+    subject() {
+        return "Welcome"
+    }
+
+    body(user: User) {
+        return "Hello"
+    }
+}
 ```
 
 - A `middleware` declaration must expose `handle` as its pipeline entry point.
 - A `migration` declaration must expose `up`; `down` is optional because not every migration is safely reversible.
 - A `policy` explicitly targets a declared model with `for`. Policy method names represent authorization abilities and are intentionally not hard-coded to CRUD names.
-- These declarations have their own AST nodes and compiler semantics. They are not aliases for a generic type plus `implements`.
-- Actual HTTP middleware execution, schema operations, and authorization enforcement remain later runtime/framework work.
+- An `event` is typed application data intended for dispatch.
+- A `listener` binds to one declared event with `listens`, must define `handle`, and receives that event as its first handler argument.
+- A `notification` must define `channels` and `message`.
+- A `mail` declaration must define `subject` and `body`.
+- These declarations have their own AST nodes and compiler semantics. They are not aliases for generic types plus marker interfaces.
+- Actual event dispatching, listener execution, notification delivery, mail transport, HTTP middleware execution, schema operations, and authorization enforcement remain later runtime/framework work.
 
 ## Deliberately deferred
 
@@ -248,6 +311,6 @@ The following remain outside the implemented grammar until their semantics are d
 - enums
 - optional types
 - complete static expression type checking
-- framework routing, HTTP execution, database query/runtime behavior, schema operations inside migrations, authorization enforcement, validation, views, jobs, events, and similar application features
+- framework routing, HTTP execution, database query/runtime behavior, schema operations inside migrations, authorization enforcement, validation, views, jobs, event dispatch runtime, notification transport, mail transport, and similar application features
 
-In particular, Densleaf does not add keywords such as `service`, `request`, `job`, or `event` merely to reduce boilerplate. A new keyword must provide distinct semantics that justify becoming part of the language.
+In particular, Densleaf does not add keywords such as `service`, `request`, or `job` merely to reduce boilerplate. A new keyword must provide distinct semantics that justify becoming part of the language.

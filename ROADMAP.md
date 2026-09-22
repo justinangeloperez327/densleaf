@@ -40,6 +40,12 @@ Implemented foundation:
 - middleware `handle` contract
 - migration `up` contract with optional `down`
 - policy-to-model semantic validation
+- first-class `event` data declarations
+- first-class `listener ... listens Event` declarations
+- listener-to-event semantic validation
+- first-class `notification` declarations with `channels` and `message` contracts
+- first-class `mail` declarations with `subject` and `body` contracts
+- event types usable in fields and method parameters
 
 Next:
 
