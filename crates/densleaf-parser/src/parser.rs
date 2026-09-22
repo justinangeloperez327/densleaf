@@ -790,13 +790,20 @@ impl Parser {
             TokenKind::LeftParen => self.parse_grouped_expression(token.span),
             TokenKind::LeftBracket => self.parse_array_literal(token.span),
             TokenKind::LeftBrace => self.parse_object_literal(token.span),
-            _ => {
-                self.diagnostics.push(
-                    Diagnostic::error("expected an expression", token.span).with_help(
-                        "use a literal, identifier, array `[]`, object `{}`, or grouped expression",
-                    ),
-                );
-                None
+            kind => {
+                if let Some(name) = contextual_identifier_name(&kind) {
+                    Some(Expression::Identifier {
+                        name: name.to_string(),
+                        span: token.span,
+                    })
+                } else {
+                    self.diagnostics.push(
+                        Diagnostic::error("expected an expression", token.span).with_help(
+                            "use a literal, identifier, array `[]`, object `{}`, or grouped expression",
+                        ),
+                    );
+                    None
+                }
             }
         }
     }
@@ -898,12 +905,15 @@ impl Parser {
 
     fn expect_identifier(&mut self, message: &str) -> Option<(String, Span)> {
         let token = self.advance().clone();
-        if let TokenKind::Identifier(name) = token.kind {
-            Some((name, token.span))
-        } else {
-            self.diagnostics
-                .push(Diagnostic::error(message, token.span.clone()));
-            None
+        match token.kind {
+            TokenKind::Identifier(name) => Some((name, token.span)),
+            kind => contextual_identifier_name(&kind)
+                .map(|name| (name.to_string(), token.span.clone()))
+                .or_else(|| {
+                    self.diagnostics
+                        .push(Diagnostic::error(message, token.span.clone()));
+                    None
+                }),
         }
     }
 
@@ -952,5 +962,20 @@ impl Parser {
             self.current += 1;
         }
         &self.tokens[index]
+    }
+}
+
+fn contextual_identifier_name(kind: &TokenKind) -> Option<&'static str> {
+    match kind {
+        TokenKind::Model => Some("model"),
+        TokenKind::Controller => Some("controller"),
+        TokenKind::Middleware => Some("middleware"),
+        TokenKind::Migration => Some("migration"),
+        TokenKind::Policy => Some("policy"),
+        TokenKind::Event => Some("event"),
+        TokenKind::Listener => Some("listener"),
+        TokenKind::Notification => Some("notification"),
+        TokenKind::Mail => Some("mail"),
+        _ => None,
     }
 }

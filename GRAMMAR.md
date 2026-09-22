@@ -171,6 +171,8 @@ Declared model and event names are also valid type references.
 
 Line comments use `//`.
 
+Declaration words such as `model`, `event`, `listener`, `notification`, and `mail` are contextual keywords. They introduce declarations at the top level, but they remain valid names where the grammar expects an identifier. This keeps natural code such as `handle(event: UserCreated)` valid instead of forcing artificial variable names.
+
 ## Operator precedence
 
 From lowest to highest:
